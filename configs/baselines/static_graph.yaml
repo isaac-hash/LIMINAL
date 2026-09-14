@@ -1,0 +1,21 @@
+# Baseline B: Static Latent Graph (8 slots, 32 dim, no adaptive activity)
+model:
+  type: "graph"
+  latent_slots: 8
+  latent_dim: 32
+  edge_dim: 1
+  msg_hidden_dim: 64
+  update_hidden_dim: 64
+  num_msg_layers: 1
+  reasoning_steps: 4
+  decoder_hidden_dim: 64
+  num_classes: 2
+
+activity:
+  enabled: false
+
+training:
+  epochs: 50
+  batch_size: 16
+  lr: 1.0e-3
+  checkpoint_dir: "results/static_graph"
