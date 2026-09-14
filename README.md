@@ -45,3 +45,4 @@ pytest
 # Inspect hardware environment
 python -c "from src.utils.device import print_hardware_info; print_hardware_info()"
 ```
+
