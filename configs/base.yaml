@@ -1,0 +1,60 @@
+# === Model ===
+model:
+  type: "graph"                   # "vector" | "graph"
+  latent_slots: 8                 # N — number of latent vector slots
+  latent_dim: 32                  # d — dimension per slot
+  edge_dim: 1                    # d_e — scalar edges initially
+  msg_hidden_dim: 64             # hidden dim in message MLP
+  update_hidden_dim: 64          # hidden dim in GRU update
+  num_msg_layers: 1              # message-passing layers per step
+  reasoning_steps: 4             # T — recurrent iterations
+  max_reasoning_steps: 16        # hard safety cap
+  decoder_hidden_dim: 64         # decoder MLP hidden
+  num_classes: 2                 # binary classification default
+
+# === Activity (Phase 2 — disabled by default until Week 3) ===
+activity:
+  enabled: false
+  gate_hidden_dim: 32
+  sparsity_lambda: 0.01          # λ_act for L_activity_reg
+  entropy_lambda: 0.001          # entropy bonus weight
+
+# === Resolution (Phase 3 — disabled by default) ===
+resolution:
+  enabled: false
+  halt_threshold: 0.8
+  ponder_lambda: 0.01
+
+# === External workspace (Phase 5 — disabled by default) ===
+external:
+  enabled: false
+
+# === Persistence (Phase 4 — disabled by default) ===
+persistence:
+  enabled: false
+
+# === Data ===
+data:
+  task_family: "affordability"    # task generator to use
+  num_train: 8000
+  num_val: 1000
+  num_test: 1000
+  max_entities: 4
+  max_operations: 2
+  distractor_ratio: 0.0
+  seed: 42
+
+# === Training ===
+training:
+  epochs: 50
+  batch_size: 16
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+  grad_clip: 1.0
+  scheduler: "cosine"            # "cosine" | "step" | "none"
+  log_every: 10                  # log every N batches
+  eval_every: 1                  # evaluate every N epochs
+  checkpoint_dir: "results/default"
+
+# === Reproducibility ===
+seed: 42
