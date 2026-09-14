@@ -45,6 +45,7 @@ def main():
     print(f"Latent Slots:    {config.model.latent_slots}")
     print(f"Latent Dim:      {config.model.latent_dim}")
     print(f"Reasoning Steps: {config.model.reasoning_steps}")
+    print(f"Activity Gates:  {'ON (adaptive)' if config.activity.enabled else 'OFF (static)'}")
     print(f"Task Family:     {config.data.task_family}")
     print(f"Epochs:          {config.training.epochs}")
     print(f"Batch Size:      {config.training.batch_size}")
@@ -90,7 +91,11 @@ def main():
     )
 
     # 4. Build Model & Training Infrastructure
-    model = ReasoningModel(config=config.model, vocab=vocab).to(device)
+    model = ReasoningModel(
+        config=config.model,
+        vocab=vocab,
+        activity_config=config.activity,
+    ).to(device)
     loss_computer = LossComputer(config)
     trainer = Trainer(
         model=model,

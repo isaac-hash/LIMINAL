@@ -64,7 +64,10 @@ def load_checkpoint(
     if not ckpt_path.exists():
         raise FileNotFoundError(f"Checkpoint file not found: {ckpt_path}")
 
-    checkpoint = torch.load(ckpt_path, map_location=device)
+    # weights_only=False required because checkpoints contain the full Config dataclass
+    # alongside the state_dict. PyTorch 2.6 changed the default to weights_only=True.
+    # Safe here since we only load checkpoints that this codebase saved.
+    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
     if optimizer is not None and checkpoint.get("optimizer_state_dict") is not None:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])

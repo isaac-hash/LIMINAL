@@ -2,7 +2,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from torch import Tensor
-from src.utils.config import ModelConfig
+from src.utils.config import ModelConfig, ActivityConfig
 from src.data.dataset import Vocabulary
 from src.models.encoder import Encoder
 from src.models.latent_workspace import LatentWorkspace
@@ -10,9 +10,19 @@ from src.models.decoder import Decoder
 
 
 class ReasoningModel(nn.Module):
-    """End-to-end reasoning model composing Encoder -> LatentWorkspace -> Decoder."""
+    """End-to-end reasoning model composing Encoder -> LatentWorkspace -> Decoder.
 
-    def __init__(self, config: ModelConfig, vocab: Vocabulary):
+    Passes activity_config through to LatentWorkspace so that Phase 2 activity
+    gates are instantiated when activity.enabled=True, without changing any
+    external interface for Phase 1 callers (activity_config defaults to None).
+    """
+
+    def __init__(
+        self,
+        config: ModelConfig,
+        vocab: Vocabulary,
+        activity_config: ActivityConfig | None = None,
+    ):
         super().__init__()
         self.config = config
 
@@ -28,7 +38,7 @@ class ReasoningModel(nn.Module):
             num_slots=num_slots,
         )
 
-        self.workspace = LatentWorkspace(config)
+        self.workspace = LatentWorkspace(config, activity_config=activity_config)
 
         self.decoder = Decoder(
             latent_dim=config.latent_dim,
@@ -41,7 +51,7 @@ class ReasoningModel(nn.Module):
         Args:
             facts: Tensor[B, max_facts, 5]
             fact_mask: Tensor[B, max_facts]
-            
+
         Returns:
             logits: Tensor[B, num_classes]
             info: dict containing intermediate trajectories and states
