@@ -334,27 +334,40 @@ class ArithmeticGenerator:
             running = running + val if op == "add" else running - val
             all_ops.append((op, val))
 
-        # Build per-turn records (standalone: each turn includes all facts up to that point)
+        # Build per-turn records
         turns: list[dict[str, Any]] = []
+        incremental = getattr(self.config, "incremental_turns", False)
+
         for t in range(num_turns):
             ops_so_far = all_ops[: (t + 1) * ops_per_turn]
+            new_ops = all_ops[t * ops_per_turn : (t + 1) * ops_per_turn]
 
-            # Recompute running budget for this turn
+            # Recompute running budget and proof trace for this turn
             budget = start_money
-            input_facts: list[dict[str, Any]] = [
-                {"type": "entity", "name": person},
-                {"type": "attribute", "entity": person, "key": "money", "value": start_money},
-            ]
             proof_trace = [f"money({person})={start_money}"]
-
             for op, val in ops_so_far:
-                input_facts.append({"type": "operation", "op": op, "entity": person, "key": "money", "value": val})
                 budget = budget + val if op == "add" else budget - val
                 proof_trace.append(f"money({person}) {op}= {val}")
 
-            input_facts.append({"type": "attribute", "entity": item, "key": "price", "value": price})
             ground_truth = 1 if budget >= price else 0
             proof_trace.append(f"budget={budget}  price={price}  afford={'yes' if ground_truth else 'no'}")
+
+            # Construct input facts according to incremental mode
+            if incremental and t > 0:
+                # Incremental regime: ONLY new operations and target price (requires memory)
+                input_facts: list[dict[str, Any]] = []
+                for op, val in new_ops:
+                    input_facts.append({"type": "operation", "op": op, "entity": person, "key": "money", "value": val})
+                input_facts.append({"type": "attribute", "entity": item, "key": "price", "value": price})
+            else:
+                # Standalone regime: full history of facts up to this turn
+                input_facts = [
+                    {"type": "entity", "name": person},
+                    {"type": "attribute", "entity": person, "key": "money", "value": start_money},
+                ]
+                for op, val in ops_so_far:
+                    input_facts.append({"type": "operation", "op": op, "entity": person, "key": "money", "value": val})
+                input_facts.append({"type": "attribute", "entity": item, "key": "price", "value": price})
 
             turns.append({
                 "id": f"{sequence_id}_t{t}",

@@ -43,6 +43,7 @@ class SequentialReasoningModel(nn.Module):
             self.persistence_gate = PersistenceGate(
                 latent_dim=config.latent_dim,
                 gate_hidden_dim=self.persistence_config.gate_hidden_dim,
+                init_bias=self.persistence_config.init_bias,
             )
         else:
             self.persistence_gate = None

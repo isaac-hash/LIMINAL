@@ -219,6 +219,39 @@ def test_affordability_sequence_generation():
         assert protagonist in turn_entities
 
 
+def test_affordability_sequence_incremental_generation():
+    """Verify that incremental mode omits start_money and prior ops in turns t > 0."""
+    data_cfg = DataConfig(
+        task_family="affordability_sequence",
+        sequence_turns=3,
+        ops_per_turn=1,
+        incremental_turns=True,
+        num_train=5,
+        num_val=2,
+        num_test=2,
+        seed=42,
+    )
+    generator = ArithmeticGenerator(config=data_cfg, seed=42)
+    splits = generator.generate_dataset()
+    seq = splits["train"][0]
+
+    # Turn 0 must have start_money attribute
+    turn_0 = seq["turns"][0]
+    has_start_money_t0 = any(f.get("type") == "attribute" and f.get("key") == "money" for f in turn_0["input_facts"])
+    assert has_start_money_t0
+
+    # Turn 1 and Turn 2 must NOT have start_money attribute (only new ops and price)
+    for t_idx in (1, 2):
+        turn_t = seq["turns"][t_idx]
+        has_start_money_t = any(f.get("type") == "attribute" and f.get("key") == "money" for f in turn_t["input_facts"])
+        assert not has_start_money_t, f"Turn {t_idx} should not contain start money in incremental mode"
+        # Must have operation and item price
+        has_op = any(f.get("type") == "operation" for f in turn_t["input_facts"])
+        has_price = any(f.get("type") == "attribute" and f.get("key") == "price" for f in turn_t["input_facts"])
+        assert has_op and has_price
+
+
+
 def test_sequence_dataset_collation():
     """6. Sequence dataset and batch collation produce expected tensor shapes."""
     records, vocab = _make_dummy_sequence_records()

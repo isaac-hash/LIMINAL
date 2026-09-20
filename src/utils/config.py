@@ -49,6 +49,7 @@ class PersistenceConfig:
     enabled: bool = False
     gate_hidden_dim: int = 32       # Hidden width of per-slot persistence gate MLP
     detach_between_turns: bool = True   # Detach V_prior gradient between turns (no BPTT)
+    init_bias: float = -2.0         # Initial bias of persistence gate MLP
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ class DataConfig:
     # Sequence mode (task_family="affordability_sequence")
     sequence_turns: int = 3         # number of related turns per sequence
     ops_per_turn: int = 1           # operations added to the chain each turn
+    incremental_turns: bool = False # if True, turn t>0 contains ONLY new ops (requires persistence)
 
 
 @dataclass(frozen=True)
