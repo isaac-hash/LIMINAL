@@ -2,7 +2,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from torch import Tensor
-from src.utils.config import ModelConfig, ActivityConfig
+from src.utils.config import ModelConfig, ActivityConfig, ResolutionConfig
 from src.data.dataset import Vocabulary
 from src.models.encoder import Encoder
 from src.models.latent_workspace import LatentWorkspace
@@ -22,6 +22,7 @@ class ReasoningModel(nn.Module):
         config: ModelConfig,
         vocab: Vocabulary,
         activity_config: ActivityConfig | None = None,
+        resolution_config: ResolutionConfig | None = None,
     ):
         super().__init__()
         self.config = config
@@ -38,7 +39,7 @@ class ReasoningModel(nn.Module):
             num_slots=num_slots,
         )
 
-        self.workspace = LatentWorkspace(config, activity_config=activity_config)
+        self.workspace = LatentWorkspace(config, activity_config=activity_config, resolution_config=resolution_config)
 
         self.decoder = Decoder(
             latent_dim=config.latent_dim,

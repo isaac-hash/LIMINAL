@@ -1,0 +1,57 @@
+# Phase 3: Adaptive Resolution Graph (Activity Gates + Halt Gates)
+# Builds on Phase 2 (activity_graph.yaml) by adding per-step halt probability.
+
+model:
+  type: "graph"
+  latent_slots: 8
+  latent_dim: 32
+  edge_dim: 1
+  msg_hidden_dim: 64
+  update_hidden_dim: 64
+  num_msg_layers: 1
+  reasoning_steps: 4            # ignored when resolution.enabled=true
+  max_reasoning_steps: 16       # hard cap for the fixed-step path
+  decoder_hidden_dim: 64
+  num_classes: 2
+
+activity:
+  enabled: true
+  gate_hidden_dim: 32
+  sparsity_lambda: 0.01
+  entropy_lambda: 0.001
+
+resolution:
+  enabled: true
+  halt_hidden_dim: 32           # hidden width of halt gate MLP
+  halt_threshold: 1.0           # ACT halts when cumulative H_t >= 1.0
+  ponder_lambda: 0.01           # weight on mean-step ponder cost
+  max_reasoning_steps: 16       # hard cap on the adaptive loop
+
+# Mixed-family mode: interleaves two BINARY classification tasks so the model
+# sees examples of different difficulty in every batch.
+#   affordability  = harder  (track budget across max_operations ops, then compare price)
+#   comparison     = easier  (directly compare two entity values, no chain)
+# NOTE: simple_arithmetic and multi_step return raw integer labels and cannot
+#       be mixed with num_classes=2 — use only binary (0/1) families here.
+data:
+  task_family: "mixed"
+  mixed_families:
+    - "affordability"
+    - "comparison"
+  num_train: 8000
+  num_val: 1000
+  num_test: 1000
+  max_entities: 4
+  max_operations: 3             # 3-op affordability chains (harder than Phase 2's 2-op)
+
+training:
+  epochs: 50
+  batch_size: 16
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+  grad_clip: 1.0
+  scheduler: "cosine"
+  eval_every: 1
+  checkpoint_dir: "results/resolution_graph"
+
+seed: 42

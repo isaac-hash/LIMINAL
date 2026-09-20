@@ -52,4 +52,28 @@ class LossComputer:
             breakdown["loss_entropy"] = loss_entropy.item()
             breakdown["loss_total"] = total_loss.item()
 
+        # Phase 3: ponder cost — penalise using more steps than necessary
+        # L_ponder = lambda_ponder * mean(n_steps)
+        if self.config.resolution.enabled and info is not None and "n_steps" in info:
+            n_steps = info["n_steps"]   # Tensor[B], detached from workspace
+            # Re-attach gradient path via ponder_weights if present so the loss
+            # actually trains the halt gate.  n_steps in info is detached for
+            # logging; we compute a differentiable version from ponder_weights.
+            if "ponder_weights" in info:
+                pw = info["ponder_weights"]                         # [B, T]
+                T_actual = pw.shape[1]
+                device = pw.device
+                dtype = pw.dtype
+                step_idx = torch.arange(1, T_actual + 1, device=device, dtype=dtype).unsqueeze(0)
+                n_steps_diff = (pw * step_idx).sum(dim=1)           # [B], differentiable
+            else:
+                n_steps_diff = n_steps  # fallback (detached)
+
+            loss_ponder = self.config.resolution.ponder_lambda * n_steps_diff.mean()
+            total_loss = total_loss + loss_ponder
+            breakdown["loss_ponder"] = loss_ponder.item()
+            breakdown["mean_steps"] = n_steps.mean().item()
+            breakdown["loss_total"] = total_loss.item()
+
         return total_loss, breakdown
+

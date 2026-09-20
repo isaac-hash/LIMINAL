@@ -33,8 +33,10 @@ class ActivityConfig:
 @dataclass(frozen=True)
 class ResolutionConfig:
     enabled: bool = False
-    halt_threshold: float = 0.8
-    ponder_lambda: float = 0.01
+    halt_hidden_dim: int = 32        # Hidden width of the halt gate MLP
+    halt_threshold: float = 1.0     # ACT halts when cumulative H_t >= this
+    ponder_lambda: float = 0.01     # λ_ponder weight on mean n_steps cost
+    max_reasoning_steps: int = 16   # Hard cap on adaptive loop (overrides model.max_reasoning_steps)
 
 
 @dataclass(frozen=True)
@@ -45,11 +47,15 @@ class ExternalConfig:
 @dataclass(frozen=True)
 class PersistenceConfig:
     enabled: bool = False
+    gate_hidden_dim: int = 32       # Hidden width of per-slot persistence gate MLP
+    detach_between_turns: bool = True   # Detach V_prior gradient between turns (no BPTT)
 
 
 @dataclass(frozen=True)
 class DataConfig:
-    task_family: str = "affordability"
+    task_family: str = "affordability"  # single family, "mixed", or "affordability_sequence"
+    # Mixed-family mode: list of families to interleave (used when task_family="mixed")
+    mixed_families: tuple[str, ...] = ("affordability", "multi_step")
     num_train: int = 8000
     num_val: int = 1000
     num_test: int = 1000
@@ -57,6 +63,9 @@ class DataConfig:
     max_operations: int = 2
     distractor_ratio: float = 0.0
     seed: int = 42
+    # Sequence mode (task_family="affordability_sequence")
+    sequence_turns: int = 3         # number of related turns per sequence
+    ops_per_turn: int = 1           # operations added to the chain each turn
 
 
 @dataclass(frozen=True)
@@ -123,6 +132,10 @@ def load_config(path: str | Path, overrides: dict[str, Any] | None = None) -> Co
     data_data = raw_dict.get("data", {})
     training_data = raw_dict.get("training", {})
     seed = raw_dict.get("seed", 42)
+
+    # Convert mixed_families list→tuple if loaded from YAML (YAML gives lists)
+    if "mixed_families" in data_data and isinstance(data_data["mixed_families"], list):
+        data_data["mixed_families"] = tuple(data_data["mixed_families"])
 
     return Config(
         model=ModelConfig(**model_data),

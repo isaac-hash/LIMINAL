@@ -22,7 +22,14 @@ class Vocabulary:
 
     def build_from_records(self, records: list[dict[str, Any]]) -> None:
         """Scan all records and populate entities and keys."""
+        flat_records = []
         for r in records:
+            if "turns" in r:
+                flat_records.extend(r["turns"])
+            else:
+                flat_records.append(r)
+
+        for r in flat_records:
             for fact in r.get("input_facts", []):
                 f_type = fact.get("type", "")
                 if f_type and f_type not in self.fact_types:
@@ -99,8 +106,8 @@ class ReasoningDataset(Dataset):
     def __len__(self) -> int:
         return len(self.records)
 
-    def __getitem__(self, idx: int) -> dict[str, Any]:
-        record = self.records[idx]
+    def __getitem__(self, index: int) -> dict[str, Any]:
+        record = self.records[index]
         raw_facts = record.get("input_facts", [])
         encoded_facts = [self.vocab.encode_fact(f) for f in raw_facts]
 

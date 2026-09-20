@@ -19,6 +19,8 @@ class ArithmeticGenerator:
 
     def generate_dataset(self) -> dict[str, list[dict[str, Any]]]:
         """Generate full train, val, and test splits with deterministic seeding."""
+        if self.config.task_family == "affordability_sequence":
+            return self.generate_sequence_dataset()
         splits = {
             "train": self._generate_split("train", self.config.num_train, seed_offset=0),
             "val": self._generate_split("val", self.config.num_val, seed_offset=100000),
@@ -28,6 +30,17 @@ class ArithmeticGenerator:
 
     def _generate_split(self, split_name: str, count: int, seed_offset: int) -> list[dict[str, Any]]:
         records = []
+
+        if self.config.task_family == "mixed":
+            # Interleave families in round-robin order so each family is equally
+            # represented.  E.g. with families=("affordability", "multi_step"),
+            # even indices get affordability and odd indices get multi_step.
+            families = list(self.config.mixed_families)
+            if not families:
+                raise ValueError("mixed_families must be non-empty when task_family='mixed'")
+        else:
+            families = None  # single-family mode
+
         for i in range(count):
             item_seed = self.seed + seed_offset + i
             rng = random.Random(item_seed)
@@ -37,22 +50,68 @@ class ArithmeticGenerator:
                 "num_distractors": int(self.config.distractor_ratio * self.config.max_entities),
             }
 
-            if self.config.task_family == "affordability":
-                # Ensure 50/50 balance across the split
-                target_balance = (i % 2 == 0)
-                record = self._generate_affordability(rng, difficulty, item_seed, split_name, f"aff_{split_name}_{i:06d}", target_balance)
-            elif self.config.task_family == "simple_arithmetic":
-                record = self._generate_simple_arithmetic(rng, difficulty, item_seed, split_name, f"arith_{split_name}_{i:06d}")
-            elif self.config.task_family == "multi_step":
-                record = self._generate_multi_step(rng, difficulty, item_seed, split_name, f"mstep_{split_name}_{i:06d}")
-            elif self.config.task_family == "comparison":
-                target_balance = (i % 2 == 0)
-                record = self._generate_comparison(rng, difficulty, item_seed, split_name, f"comp_{split_name}_{i:06d}", target_balance)
+            # Resolve which task family to use for this example
+            if families is not None:
+                family = families[i % len(families)]
             else:
-                raise ValueError(f"Unknown task family: {self.config.task_family}")
+                family = self.config.task_family
 
+            record = self._dispatch_generate(family, rng, difficulty, item_seed, split_name, i)
             records.append(record)
         return records
+
+    def generate_sequence_dataset(self) -> dict[str, list[dict[str, Any]]]:
+        """Generate multi-turn sequence splits (used when task_family='affordability_sequence')."""
+        return {
+            "train": self._generate_sequence_split("train", self.config.num_train, seed_offset=0),
+            "val": self._generate_sequence_split("val", self.config.num_val, seed_offset=100000),
+            "test": self._generate_sequence_split("test", self.config.num_test, seed_offset=200000),
+        }
+
+    def _generate_sequence_split(self, split_name: str, count: int, seed_offset: int) -> list[dict[str, Any]]:
+        """Generate `count` multi-turn sequences for the given split."""
+        records = []
+        for i in range(count):
+            item_seed = self.seed + seed_offset + i
+            rng = random.Random(item_seed)
+            seq = self._generate_affordability_sequence(
+                rng=rng,
+                seed=item_seed,
+                split=split_name,
+                sequence_id=f"seq_{split_name}_{i:06d}",
+            )
+            records.append(seq)
+        return records
+
+    def _dispatch_generate(
+        self,
+        family: str,
+        rng: random.Random,
+        difficulty: dict[str, int],
+        item_seed: int,
+        split_name: str,
+        i: int,
+    ) -> dict[str, Any]:
+        """Route generation to the correct task-family generator."""
+        if family == "affordability":
+            target_balance = (i % 2 == 0)
+            return self._generate_affordability(rng, difficulty, item_seed, split_name, f"aff_{split_name}_{i:06d}", target_balance)
+        elif family == "simple_arithmetic":
+            return self._generate_simple_arithmetic(rng, difficulty, item_seed, split_name, f"arith_{split_name}_{i:06d}")
+        elif family == "multi_step":
+            return self._generate_multi_step(rng, difficulty, item_seed, split_name, f"mstep_{split_name}_{i:06d}")
+        elif family == "comparison":
+            target_balance = (i % 2 == 0)
+            return self._generate_comparison(rng, difficulty, item_seed, split_name, f"comp_{split_name}_{i:06d}", target_balance)
+        elif family == "affordability_sequence":
+            # Single-example call: generate a sequence and return only the first turn
+            # for compatibility with single-turn training. Use generate_sequence_dataset
+            # for full multi-turn training.
+            rng2 = random.Random(item_seed)
+            seq = self._generate_affordability_sequence(rng2, item_seed, split_name, f"seq_{split_name}_{i:06d}")
+            return seq["turns"][0]  # first turn only
+        else:
+            raise ValueError(f"Unknown task family: {family}")
 
     def _generate_affordability(
         self, rng: random.Random, difficulty: dict[str, int], seed: int, split: str, record_id: str, target_can_afford: bool
@@ -222,6 +281,97 @@ class ArithmeticGenerator:
             "input_facts": input_facts,
             "ground_truth": gt,
             "proof_trace": proof_trace,
+            "seed": seed,
+            "split": split,
+        }
+
+    def _generate_affordability_sequence(
+        self,
+        rng: random.Random,
+        seed: int,
+        split: str,
+        sequence_id: str,
+    ) -> dict[str, Any]:
+        """Generate a multi-turn affordability sequence (Option A: standalone facts per turn).
+
+        Each turn is a STANDALONE affordability problem that includes ALL cumulative facts
+        (so a reset model can also solve each turn independently).  The persistent model
+        should gain an efficiency advantage by reusing its prior workspace state rather
+        than re-computing from scratch.
+
+        Structure:
+          Turn 0: Alice has <start>. [op_1]. Can she afford <item> (price=<p>)?  → Y/N
+          Turn 1: Alice has <start>. [op_1]. [op_2]. Same item. Can she afford?  → Y/N
+          Turn 2: Alice has <start>. [op_1]. [op_2]. [op_3]. Same item.           → Y/N
+          ...
+
+        Args:
+            rng:          seeded RNG for this sequence
+            seed:         integer seed for record metadata
+            split:        "train" | "val" | "test"
+            sequence_id:  unique ID for this sequence
+
+        Returns:
+            {"sequence_id": str, "turns": [turn_dict, ...], "task_family": "affordability_sequence"}
+        """
+        num_turns = self.config.sequence_turns
+        ops_per_turn = self.config.ops_per_turn
+
+        person = rng.choice(self.ENTITIES)
+        item = rng.choice(self.ITEMS)
+        price = rng.randint(20, 80)
+        start_money = rng.randint(20, 60)
+
+        # Pre-generate ALL operations for the full sequence
+        total_ops = num_turns * ops_per_turn
+        all_ops: list[tuple[str, int]] = []
+        running = start_money
+        for _ in range(total_ops):
+            op = rng.choice(self.OPERATIONS)
+            val = rng.randint(5, 20)
+            if op == "sub":
+                val = min(val, max(1, running - 5))  # keep running positive
+            running = running + val if op == "add" else running - val
+            all_ops.append((op, val))
+
+        # Build per-turn records (standalone: each turn includes all facts up to that point)
+        turns: list[dict[str, Any]] = []
+        for t in range(num_turns):
+            ops_so_far = all_ops[: (t + 1) * ops_per_turn]
+
+            # Recompute running budget for this turn
+            budget = start_money
+            input_facts: list[dict[str, Any]] = [
+                {"type": "entity", "name": person},
+                {"type": "attribute", "entity": person, "key": "money", "value": start_money},
+            ]
+            proof_trace = [f"money({person})={start_money}"]
+
+            for op, val in ops_so_far:
+                input_facts.append({"type": "operation", "op": op, "entity": person, "key": "money", "value": val})
+                budget = budget + val if op == "add" else budget - val
+                proof_trace.append(f"money({person}) {op}= {val}")
+
+            input_facts.append({"type": "attribute", "entity": item, "key": "price", "value": price})
+            ground_truth = 1 if budget >= price else 0
+            proof_trace.append(f"budget={budget}  price={price}  afford={'yes' if ground_truth else 'no'}")
+
+            turns.append({
+                "id": f"{sequence_id}_t{t}",
+                "task_family": "affordability_sequence",
+                "turn_index": t,
+                "sequence_id": sequence_id,
+                "input_facts": input_facts,
+                "ground_truth": ground_truth,
+                "proof_trace": proof_trace,
+                "seed": seed,
+                "split": split,
+            })
+
+        return {
+            "sequence_id": sequence_id,
+            "task_family": "affordability_sequence",
+            "turns": turns,
             "seed": seed,
             "split": split,
         }

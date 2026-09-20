@@ -1,0 +1,36 @@
+model:
+  type: "graph"
+  latent_slots: 8
+  latent_dim: 32
+  num_classes: 2
+
+activity:
+  enabled: true
+  gate_hidden_dim: 32
+  sparsity_lambda: 0.01
+  entropy_lambda: 0.001
+
+resolution:
+  enabled: true
+  halt_hidden_dim: 32
+  ponder_lambda: 0.01
+  max_reasoning_steps: 16
+
+persistence:
+  enabled: false
+  gate_hidden_dim: 32
+  detach_between_turns: true
+
+data:
+  task_family: "affordability_sequence"
+  sequence_turns: 3
+  ops_per_turn: 1
+  num_train: 3000          # 3000 sequences × 3 turns = 9000 examples
+  num_val: 500
+  num_test: 500
+
+training:
+  epochs: 50
+  batch_size: 8            # batch of sequences
+  lr: 1.0e-3
+  checkpoint_dir: "results/persistence_reset"
