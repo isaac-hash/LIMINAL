@@ -2,14 +2,16 @@ from typing import Any
 import torch
 import torch.nn as nn
 from torch import Tensor
-from src.utils.config import ModelConfig, ActivityConfig, ResolutionConfig, PersistenceConfig
+from src.utils.config import ModelConfig, ActivityConfig, ResolutionConfig, PersistenceConfig, ExternalConfig
 from src.data.dataset import Vocabulary
 from src.models.model import ReasoningModel
 from src.models.persistence import PersistenceGate
+from src.models.external_workspace import ExternalWorkspaceState
 
 
 class SequentialReasoningModel(nn.Module):
-    """Multi-turn sequential reasoning wrapper supporting persistent latent state.
+    """Multi-turn sequential reasoning wrapper supporting persistent latent state
+    and an optional external workspace scratchpad carried across turns.
 
     At each turn t:
       1. New facts are encoded to fresh latent representations V_new.
@@ -17,8 +19,11 @@ class SequentialReasoningModel(nn.Module):
              V_0, gates = persistence_gate(V_prior, V_new)
          Else:
              V_0 = V_new (standard reset behavior)
-      3. Reasoning occurs in the latent workspace (fixed or adaptive steps).
+      3. Reasoning occurs in the latent workspace (fixed or adaptive steps),
+         optionally with an external workspace W_t (Phase 5).
       4. V_prior is carried forward to turn t + 1 (detached by default).
+      5. If external workspace is enabled, W_final is carried forward as W_0
+         for turn t + 1 (detached according to detach_workspace_between_turns).
     """
 
     def __init__(
@@ -28,15 +33,18 @@ class SequentialReasoningModel(nn.Module):
         activity_config: ActivityConfig | None = None,
         resolution_config: ResolutionConfig | None = None,
         persistence_config: PersistenceConfig | None = None,
+        external_config: ExternalConfig | None = None,
     ):
         super().__init__()
         self.config = config
         self.persistence_config = persistence_config or PersistenceConfig()
+        self.external_config = external_config
         self.base_model = ReasoningModel(
             config,
             vocab,
             activity_config=activity_config,
             resolution_config=resolution_config,
+            external_config=external_config,
         )
 
         if self.persistence_config.enabled:
@@ -71,7 +79,11 @@ class SequentialReasoningModel(nn.Module):
         if turn_mask is None:
             turn_mask = torch.ones((B, max_turns), device=device)
 
+        ext = self.external_config
+        use_external = ext is not None and ext.enabled
+
         V_prior: Tensor | None = None
+        W_prior: ExternalWorkspaceState | None = None
         all_logits: list[Tensor] = []
         all_infos: list[dict[str, Any]] = []
 
@@ -87,7 +99,7 @@ class SequentialReasoningModel(nn.Module):
             else:
                 V_0 = V_new
 
-            h_final, info = self.base_model.workspace(V_0)
+            h_final, info = self.base_model.workspace(V_0, workspace=W_prior if use_external else None)
             logits = self.base_model.decoder(h_final)
 
             info["V_0"] = V_0
@@ -102,7 +114,7 @@ class SequentialReasoningModel(nn.Module):
                 V_final = h_final.unsqueeze(1)
                 info["V_final"] = V_final
 
-            # Prepare prior state for turn t + 1
+            # Prepare latent prior state for turn t + 1
             if self.persistence_config.detach_between_turns:
                 V_next_prior = V_final.detach()
             else:
@@ -111,6 +123,26 @@ class SequentialReasoningModel(nn.Module):
             # If an example's turn t was masked out, zero its carried state
             valid_t = turn_mask[:, t].view(-1, 1, 1)
             V_prior = torch.where(valid_t > 0, V_next_prior, torch.zeros_like(V_next_prior))
+
+            # Carry external workspace across turns (Phase 5)
+            if use_external and ext is not None:
+                ws_traj = info.get("workspace_trajectory", [])
+                if ws_traj:
+                    W_last = ws_traj[-1]  # already detached snapshot
+                    if ext.detach_workspace_between_turns:
+                        W_next = W_last.clone(detach=True)
+                    else:
+                        W_next = W_last.clone(detach=False)
+                    # Zero workspace for masked-out (padding) turns
+                    valid_b = (turn_mask[:, t] > 0)  # [B]
+                    if not valid_b.all():
+                        for b in range(B):
+                            if not valid_b[b].item():
+                                W_next.records[b].zero_()
+                                W_next.mask[b].zero_()
+                    W_prior = W_next
+                else:
+                    W_prior = None
 
             all_logits.append(logits)
             all_infos.append(info)

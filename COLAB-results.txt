@@ -77,3 +77,83 @@ Saving diagnostic plots to results/persistence_graph/analysis...
   Turn 2 Acc: 99.60%  (Reset: 99.60%, Δ = +0.00%)
   Turn 3 Acc: 99.60%  (Reset: 98.80%, Δ = +0.80%)
 Detailed results and plots written to results/persistence_graph/analysis
+
+
+Device: cuda
+GPU: Tesla T4
+VRAM: 14.6 GB
+
+--- Multi-Turn Sequential Training Configuration ---
+Model Type:      graph
+Latent Slots:    8
+Latent Dim:      32
+Reasoning Steps: 4
+Activity Gates:  ON (adaptive)
+Halt Gates:      ON (adaptive, T_max=16)
+Persistence:     ON (gated blend)
+Detach Turns:    True
+Task Family:     affordability_sequence
+Sequence Turns:  3
+Ops Per Turn:    1
+Epochs:          50
+Batch Size:      8
+Checkpoint Dir:  results/persistence_incremental
+
+Generating synthetic sequence dataset...
+Dataset generated: 3000 train sequences, 500 val sequences, 500 test sequences.
+Starting sequential training loop...
+Sequential training finished.
+
+--- Final Multi-Turn Test Results ---
+Test Loss:     0.0885
+Test Accuracy: 97.80%
+  Turn 1 Accuracy: 99.00%
+  Turn 2 Accuracy: 97.40%
+  Turn 3 Accuracy: 97.00%
+
+
+Device: cuda
+GPU: Tesla T4
+VRAM: 14.6 GB
+
+--- Multi-Turn Sequential Training Configuration ---
+Model Type:      graph
+Latent Slots:    8
+Latent Dim:      32
+Reasoning Steps: 4
+Activity Gates:  ON (adaptive)
+Halt Gates:      ON (adaptive, T_max=16)
+Persistence:     OFF (fresh reset)
+Detach Turns:    True
+Task Family:     affordability_sequence
+Sequence Turns:  3
+Ops Per Turn:    1
+Epochs:          50
+Batch Size:      8
+Checkpoint Dir:  results/persistence_incremental_reset
+
+Generating synthetic sequence dataset...
+Dataset generated: 3000 train sequences, 500 val sequences, 500 test sequences.
+Starting sequential training loop...
+Sequential training finished.
+
+--- Final Multi-Turn Test Results ---
+Test Loss:     0.3321
+Test Accuracy: 83.67%
+  Turn 1 Accuracy: 98.60%
+  Turn 2 Accuracy: 75.60%
+  Turn 3 Accuracy: 76.80%
+
+
+Device: cuda
+GPU: Tesla T4
+VRAM: 14.6 GB
+Loading persistent checkpoint: results/persistence_incremental/best.pt
+Loading reset baseline checkpoint: results/persistence_incremental_reset/best.pt
+Saving diagnostic plots to results/persistence_incremental/analysis...
+
+--- Persistence Analysis Summary ---
+  Turn 1 Acc: 98.80%  (Reset: 97.40%, Δ = +1.40%)
+  Turn 2 Acc: 96.60%  (Reset: 76.80%, Δ = +19.80%)
+  Turn 3 Acc: 96.60%  (Reset: 77.00%, Δ = +19.60%)
+Detailed results and plots written to results/persistence_incremental/analysis

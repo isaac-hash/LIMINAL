@@ -49,6 +49,11 @@ def main():
     print(f"Halt Gates:      {'ON (adaptive, T_max=' + str(config.resolution.max_reasoning_steps) + ')' if config.resolution.enabled else 'OFF (fixed steps)'}")
     print(f"Persistence:     {'ON (gated blend)' if config.persistence.enabled else 'OFF (fresh reset)'}")
     print(f"Detach Turns:    {config.persistence.detach_between_turns}")
+    if config.external.enabled:
+        ec = config.external
+        print(f"External WS:     ON (slots={ec.num_slots}, top_k={ec.write_top_k}, read_heads={ec.read_heads}, edge_adapt={ec.edge_adaptation})")
+    else:
+        print(f"External WS:     OFF")
     print(f"Task Family:     {config.data.task_family}")
     print(f"Sequence Turns:  {config.data.sequence_turns}")
     print(f"Ops Per Turn:    {config.data.ops_per_turn}")
@@ -102,6 +107,7 @@ def main():
         activity_config=config.activity,
         resolution_config=config.resolution,
         persistence_config=config.persistence,
+        external_config=config.external,
     ).to(device)
 
     trainer = SequentialTrainer(

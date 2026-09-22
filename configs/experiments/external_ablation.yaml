@@ -1,0 +1,80 @@
+# Phase 5 External Workspace Ablation Config
+# Runs the full internal-external coupled loop.
+# Compare against configs/persistence_graph.yaml (external OFF) as the baseline.
+
+# === Model ===
+model:
+  type: graph
+  latent_slots: 8
+  latent_dim: 32
+  edge_dim: 1
+  msg_hidden_dim: 64
+  update_hidden_dim: 64
+  num_msg_layers: 1
+  reasoning_steps: 4
+  max_reasoning_steps: 16
+  decoder_hidden_dim: 64
+  num_classes: 2
+
+# === Activity (ON — required for top-K salience scoring in WriteController) ===
+activity:
+  enabled: true
+  gate_hidden_dim: 32
+  sparsity_lambda: 0.01
+  entropy_lambda: 0.001
+
+# === Resolution (ON — adaptive halting) ===
+resolution:
+  enabled: true
+  halt_threshold: 0.8
+  ponder_lambda: 0.01
+  max_reasoning_steps: 16
+
+# === External Workspace (Phase 5) ===
+external:
+  enabled: true
+  num_slots: 16
+  record_dim: 32
+  num_types: 7
+  write_top_k: 3            # 3 of 8 latent slots write per step
+  write_dedup: true
+  read_heads: 2
+  read_gate: true
+  edge_adaptation: true
+  edge_hidden_dim: 32
+  detach_workspace_between_turns: true
+
+# === Persistence (ON — latent state carry-over across turns) ===
+persistence:
+  enabled: true
+  gate_hidden_dim: 32
+  detach_between_turns: true
+
+# === Data ===
+data:
+  task_family: affordability_sequence
+  sequence_turns: 3
+  ops_per_turn: 1
+  incremental_turns: false
+  num_train: 3000
+  num_val: 500
+  num_test: 500
+  max_entities: 4
+  max_operations: 2
+  distractor_ratio: 0.0
+  seed: 42
+
+# === Training ===
+training:
+  epochs: 50
+  batch_size: 8
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+  grad_clip: 1.0
+  scheduler: cosine
+  log_every: 10
+  eval_every: 1
+  checkpoint_dir: results/external_ablation
+
+# === Reproducibility ===
+seed: 42

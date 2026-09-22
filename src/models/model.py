@@ -2,7 +2,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from torch import Tensor
-from src.utils.config import ModelConfig, ActivityConfig, ResolutionConfig
+from src.utils.config import ModelConfig, ActivityConfig, ResolutionConfig, ExternalConfig
 from src.data.dataset import Vocabulary
 from src.models.encoder import Encoder
 from src.models.latent_workspace import LatentWorkspace
@@ -12,9 +12,9 @@ from src.models.decoder import Decoder
 class ReasoningModel(nn.Module):
     """End-to-end reasoning model composing Encoder -> LatentWorkspace -> Decoder.
 
-    Passes activity_config through to LatentWorkspace so that Phase 2 activity
-    gates are instantiated when activity.enabled=True, without changing any
-    external interface for Phase 1 callers (activity_config defaults to None).
+    Passes activity_config, resolution_config, and external_config through to
+    LatentWorkspace so Phase 2–5 sub-modules are instantiated when enabled,
+    without changing the external interface for Phase 1 callers.
     """
 
     def __init__(
@@ -23,6 +23,7 @@ class ReasoningModel(nn.Module):
         vocab: Vocabulary,
         activity_config: ActivityConfig | None = None,
         resolution_config: ResolutionConfig | None = None,
+        external_config: ExternalConfig | None = None,
     ):
         super().__init__()
         self.config = config
@@ -39,7 +40,12 @@ class ReasoningModel(nn.Module):
             num_slots=num_slots,
         )
 
-        self.workspace = LatentWorkspace(config, activity_config=activity_config, resolution_config=resolution_config)
+        self.workspace = LatentWorkspace(
+            config,
+            activity_config=activity_config,
+            resolution_config=resolution_config,
+            external_config=external_config,
+        )
 
         self.decoder = Decoder(
             latent_dim=config.latent_dim,

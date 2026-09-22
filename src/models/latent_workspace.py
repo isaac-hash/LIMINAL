@@ -2,11 +2,15 @@ from typing import Any
 import torch
 import torch.nn as nn
 from torch import Tensor
-from src.utils.config import ModelConfig, ActivityConfig, ResolutionConfig
+from src.utils.config import ModelConfig, ActivityConfig, ResolutionConfig, ExternalConfig
 from src.models.message_passing import MessagePassingLayer
 from src.models.readout import InvariantReadout
 from src.models.activity import ActivityGate
 from src.models.resolution import HaltGate
+from src.models.external_workspace import ExternalWorkspaceState
+from src.models.externaliser import WriteController
+from src.models.reader import ReadController
+from src.models.relationships import EdgeAdapter
 
 
 class LatentWorkspace(nn.Module):
@@ -18,6 +22,9 @@ class LatentWorkspace(nn.Module):
       - Phase 2 (activity):   fixed T steps, ActivityGate computes per-slot gates.
       - Phase 3 (resolution): dynamic T steps via ACT-style HaltGate; each example
         accumulates halt probabilities and exits when cumulative P >= halt_threshold.
+      - Phase 4 (persistence): latent state carried across sequence turns via PersistenceGate.
+      - Phase 5 (external):   coupled internal-external loop with structured scratchpad.
+        Each reasoning step: Read(V,W) → EdgeAdapt(V,E) → Activity → MsgPass → Write(W,V,A).
     """
 
     def __init__(
@@ -25,17 +32,22 @@ class LatentWorkspace(nn.Module):
         config: ModelConfig,
         activity_config: ActivityConfig | None = None,
         resolution_config: ResolutionConfig | None = None,
+        external_config: ExternalConfig | None = None,
     ):
         super().__init__()
         self.config = config
         self.activity_config = activity_config
         self.resolution_config = resolution_config
+        self.external_config = external_config
 
         if config.type == "vector":
             self.gru_cell = nn.GRUCell(
                 input_size=config.latent_dim,
                 hidden_size=config.latent_dim,
             )
+            self.write_controller: WriteController | None = None
+            self.read_controller: ReadController | None = None
+            self.edge_adapter: EdgeAdapter | None = None
         elif config.type == "graph":
             self.msg_layers = nn.ModuleList([
                 MessagePassingLayer(
@@ -67,6 +79,23 @@ class LatentWorkspace(nn.Module):
                 )
             else:
                 self.halt_gate = None
+
+            # Phase 5: optional external workspace controllers
+            if external_config is not None and external_config.enabled:
+                self.write_controller = WriteController(config.latent_dim, external_config)
+                self.read_controller = ReadController(config.latent_dim, external_config)
+                if external_config.edge_adaptation:
+                    self.edge_adapter = EdgeAdapter(
+                        latent_dim=config.latent_dim,
+                        edge_dim=config.edge_dim,
+                        hidden_dim=external_config.edge_hidden_dim,
+                    )
+                else:
+                    self.edge_adapter = None
+            else:
+                self.write_controller = None
+                self.read_controller = None
+                self.edge_adapter = None
         else:
             raise ValueError(f"Unknown workspace model type: {config.type}")
 
@@ -75,13 +104,17 @@ class LatentWorkspace(nn.Module):
         V_0: Tensor,
         E_0: Tensor | None = None,
         A_0: Tensor | None = None,
+        workspace: ExternalWorkspaceState | None = None,
     ) -> tuple[Tensor, dict[str, Any]]:
         """
         Args:
-            V_0: Tensor[B, num_slots, latent_dim] initial slot/vector state
-            E_0: Tensor[B, N, N, d_e] optional initial edge tensor
-            A_0: Tensor[B, N] optional initial activity tensor (ignored when
-                 activity_gate is active; activity is recomputed each step)
+            V_0:       Tensor[B, num_slots, latent_dim] initial slot/vector state
+            E_0:       Tensor[B, N, N, d_e] optional initial edge tensor
+            A_0:       Tensor[B, N] optional initial activity tensor (ignored when
+                       activity_gate is active; activity is recomputed each step)
+            workspace: Optional ExternalWorkspaceState to carry across sequence turns
+                       (Phase 5). If None and external is enabled, a fresh empty
+                       workspace is initialised at the start of the forward pass.
 
         Returns:
             h_final: Tensor[B, latent_dim] pooled representation for decoder
@@ -90,9 +123,10 @@ class LatentWorkspace(nn.Module):
         if self.config.type == "vector":
             return self._forward_vector(V_0)
         elif self.halt_gate is not None:
-            return self._forward_graph_adaptive(V_0, E_0, A_0)
+            return self._forward_graph_adaptive(V_0, E_0, A_0, workspace=workspace)
         else:
-            return self._forward_graph(V_0, E_0, A_0)
+            return self._forward_graph(V_0, E_0, A_0, workspace=workspace)
+
 
     def _forward_vector(self, V_0: Tensor) -> tuple[Tensor, dict[str, Any]]:
         """Vector baseline recurrence."""
@@ -110,25 +144,50 @@ class LatentWorkspace(nn.Module):
         V: Tensor,
         E: Tensor | None = None,
         A: Tensor | None = None,
+        workspace: ExternalWorkspaceState | None = None,
     ) -> tuple[Tensor, dict[str, Any]]:
-        """Graph workspace relational message passing (fixed steps, Phases 1 & 2).
+        """Graph workspace relational message passing (fixed steps, Phases 1–5).
 
         When activity_gate is set, recomputes A at every step from the current
         slot states V.  Otherwise uses the static ones tensor (Phase 1 baseline).
+
+        When external workspace is enabled (Phase 5), each step runs:
+          Read(V,W) -> EdgeAdapt(V,E) -> Activity -> MsgPass -> Write(W,V,A)
         """
         B, N, d = V.shape
+        ext = self.external_config
+        use_external = ext is not None and ext.enabled and self.read_controller is not None
 
         if E is None:
-            # Broadcast learnable edge prior
             E = self.edge_prior.unsqueeze(0).expand(B, N, N, self.config.edge_dim)
         if A is None and self.activity_gate is None:
             A = torch.ones((B, N), device=V.device, dtype=V.dtype)
 
+        # Initialise external workspace for this forward pass
+        if use_external:
+            assert ext is not None
+            if workspace is None:
+                workspace = ExternalWorkspaceState.init_empty(
+                    B, ext.num_slots, ext.record_dim, V.device, V.dtype
+                )
+            workspace.reset_pass_flags()
+
         trajectory = [V.detach()]
         activity_trajectory: list[Tensor] = []
+        workspace_trajectory: list[ExternalWorkspaceState] = []
+        read_weights_trajectory: list[Tensor] = []
 
-        for _ in range(self.config.reasoning_steps):
-            # Compute activity gates: dynamic (Phase 2) or static ones (Phase 1)
+        for _t in range(self.config.reasoning_steps):
+            # 1. Read from external workspace (before message passing)
+            if use_external and workspace is not None and self.read_controller is not None:
+                V, rw = self.read_controller(V, A if A is not None else torch.ones((B, N), device=V.device, dtype=V.dtype), workspace)
+                read_weights_trajectory.append(rw.detach())
+
+            # 2. Dynamic edge adaptation
+            if self.edge_adapter is not None:
+                E = self.edge_adapter(V, E)
+
+            # 3. Compute activity gates: dynamic (Phase 2) or static ones (Phase 1)
             if self.activity_gate is not None:
                 A = self.activity_gate(V)          # [B, N] — differentiable
             elif A is None:
@@ -137,9 +196,15 @@ class LatentWorkspace(nn.Module):
             assert A is not None
             activity_trajectory.append(A.detach())
 
+            # 4. Message passing update
             for layer in self.msg_layers:
                 V = layer(V, E, A)
             trajectory.append(V.detach())
+
+            # 5. Write to external workspace
+            if use_external and workspace is not None and self.write_controller is not None:
+                workspace = self.write_controller(workspace, V, A, step=_t)
+                workspace_trajectory.append(workspace.clone(detach=True))
 
         # Final activity for readout (recompute if dynamic)
         if self.activity_gate is not None:
@@ -155,16 +220,20 @@ class LatentWorkspace(nn.Module):
             "A_final": A,
             "E_final": E,
             "h_final": h_final,
+            "workspace_trajectory": workspace_trajectory,
+            "read_weights_trajectory": read_weights_trajectory,
         }
         return h_final, info
+
 
     def _forward_graph_adaptive(
         self,
         V: Tensor,
         E: Tensor | None = None,
         A: Tensor | None = None,
+        workspace: ExternalWorkspaceState | None = None,
     ) -> tuple[Tensor, dict[str, Any]]:
-        """ACT-style dynamic graph workspace (Phase 3).
+        """ACT-style dynamic graph workspace (Phases 3–5).
 
         Each example in the batch independently accumulates a halt probability.
         When an example's cumulative halt probability H_t >= halt_threshold, it
@@ -180,11 +249,15 @@ class LatentWorkspace(nn.Module):
 
         This guarantees sum_t w_t[b] = 1 for every example b.
 
-        New info keys:
+        New info keys (Phase 3):
             halt_probs:      list[Tensor[B]] — raw halt probability at each step
             ponder_weights:  Tensor[B, T_actual] — ACT weight per step
             n_steps:         Tensor[B] — effective (fractional) step count per example
             effective_steps: float — mean n_steps across batch
+
+        New info keys (Phase 5, when external enabled):
+            workspace_trajectory:     list[ExternalWorkspaceState] — per-step snapshots
+            read_weights_trajectory:  list[Tensor[B, heads, M]] — per-step read attention
         """
         assert self.halt_gate is not None
         rc = self.resolution_config
@@ -193,11 +266,23 @@ class LatentWorkspace(nn.Module):
         B, N, d = V.shape
         T_max = rc.max_reasoning_steps
 
+        ext = self.external_config
+        use_external = ext is not None and ext.enabled and self.read_controller is not None
+
         if E is None:
             E = self.edge_prior.unsqueeze(0).expand(B, N, N, self.config.edge_dim)
 
         device = V.device
         dtype = V.dtype
+
+        # Initialise external workspace for this forward pass
+        if use_external:
+            assert ext is not None
+            if workspace is None:
+                workspace = ExternalWorkspaceState.init_empty(
+                    B, ext.num_slots, ext.record_dim, device, dtype
+                )
+            workspace.reset_pass_flags()
 
         # ACT accumulation state
         halted = torch.zeros(B, dtype=torch.bool, device=device)   # [B]
@@ -211,10 +296,21 @@ class LatentWorkspace(nn.Module):
 
         trajectory = [V.detach()]
         activity_trajectory: list[Tensor] = []
+        workspace_trajectory: list[ExternalWorkspaceState] = []
+        read_weights_trajectory: list[Tensor] = []
         A_current: Tensor = torch.ones((B, N), device=device, dtype=dtype)
 
         for _t in range(T_max):
-            # --- Activity gates (Phase 2 or static) ---
+            # 1. Read from external workspace (before activity + message passing)
+            if use_external and workspace is not None and self.read_controller is not None:
+                V, rw = self.read_controller(V, A_current, workspace)
+                read_weights_trajectory.append(rw.detach())
+
+            # 2. Dynamic edge adaptation
+            if self.edge_adapter is not None:
+                E = self.edge_adapter(V, E)
+
+            # 3. Activity gates (Phase 2 or static)
             if self.activity_gate is not None:
                 A_current = self.activity_gate(V)   # [B, N]
             else:
@@ -222,12 +318,17 @@ class LatentWorkspace(nn.Module):
 
             activity_trajectory.append(A_current.detach())
 
-            # --- Message passing update ---
+            # 4. Message passing update
             for layer in self.msg_layers:
                 V = layer(V, E, A_current)
             trajectory.append(V.detach())
 
-            # --- Halt probability ---
+            # 5. Write to external workspace
+            if use_external and workspace is not None and self.write_controller is not None:
+                workspace = self.write_controller(workspace, V, A_current, step=_t)
+                workspace_trajectory.append(workspace.clone(detach=True))
+
+            # 6. Halt probability
             h_t = self.halt_gate(V, A_current)  # [B], differentiable
 
             # Remainder: probability budget remaining before this step
@@ -296,5 +397,9 @@ class LatentWorkspace(nn.Module):
             "ponder_weights": ponder_weights,
             "n_steps": n_steps,
             "effective_steps": n_steps.mean().item(),
+            # Phase 5 specific
+            "workspace_trajectory": workspace_trajectory,
+            "read_weights_trajectory": read_weights_trajectory,
         }
         return h_acc, info
+

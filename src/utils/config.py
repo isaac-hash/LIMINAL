@@ -42,6 +42,17 @@ class ResolutionConfig:
 @dataclass(frozen=True)
 class ExternalConfig:
     enabled: bool = False
+    num_slots: int = 16                       # M <= 32 external record capacity
+    record_dim: int = 32                      # d_ext payload dimension (default = latent_dim)
+    num_types: int = 7                        # EMPTY, ENTITY, ATTRIBUTE, RELATION, OPERATION, CONSTRAINT, STATUS
+    write_top_k: int = 2                      # Top-K latent slots written per reasoning step
+    write_dedup: bool = True                  # Skip re-writing a slot that already wrote in this forward pass
+    read_heads: int = 2                       # Attention heads in read controller
+    read_gate: bool = True                    # Per-slot gated injection: V' = V + gate * R
+    edge_adaptation: bool = True             # Dynamic e_ij' = MLP(v_i, v_j, e_ij)
+    edge_hidden_dim: int = 32                # Hidden width of edge adaptation MLP
+    detach_workspace_between_turns: bool = True  # Detach W between sequence turns (mirrors PersistenceConfig)
+
 
 
 @dataclass(frozen=True)
