@@ -254,9 +254,10 @@ def main() -> None:
             if n_batches_done >= args.num_eval_batches:
                 break
 
-            facts_seq     = batch["facts_seq"].to(device)
-            fact_mask_seq = batch["fact_mask_seq"].to(device)
-            labels_seq    = batch["labels_seq"].to(device)  # [B, T_turns]
+            facts_seq     = batch["facts"].to(device)
+            fact_mask_seq = batch["fact_mask"].to(device)
+            turn_mask     = batch["turn_mask"].to(device)
+            labels_seq    = batch["labels"].to(device)  # [B, T_turns]
 
             # We evaluate on the final turn's labels for the intervention
             # (the turn where all facts have been accumulated)
@@ -265,7 +266,7 @@ def main() -> None:
             labels = labels_seq[:, last_turn]  # [B]
 
             # Full forward pass to get the step-by-step trajectory
-            stacked_logits, all_infos = model(facts_seq, fact_mask_seq)
+            stacked_logits, all_infos = model(facts_seq, fact_mask_seq, turn_mask)
             last_info = all_infos[last_turn]
 
             # Extract per-step snapshots emitted by the workspace
