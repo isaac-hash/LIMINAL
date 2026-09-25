@@ -13,6 +13,46 @@ from src.models.reader import ReadController
 from src.models.relationships import EdgeAdapter
 
 
+# ---------------------------------------------------------------------------
+# Snapshot container (Phase 6)
+# ---------------------------------------------------------------------------
+
+class WorkspaceSnapshot:
+    """Lightweight container holding a detached mid-trajectory state capture.
+
+    Created by LatentWorkspace.snapshot() and consumed by
+    LatentWorkspace.restore() to branch the computation from an
+    arbitrary reasoning step for causal intervention experiments.
+
+    Attributes
+    ----------
+    V : Tensor[B, N, d]            — latent slot state at the captured step.
+    E : Tensor[B, N, N, d_e]      — edge tensor at the captured step.
+    W : ExternalWorkspaceState     — external scratchpad at the captured step.
+    step : int                     — which reasoning step was captured.
+    """
+
+    def __init__(
+        self,
+        V: Tensor,
+        E: Tensor | None,
+        W: ExternalWorkspaceState | None,
+        step: int,
+    ) -> None:
+        self.V    = V.detach().clone()
+        self.E    = E.detach().clone() if E is not None else None
+        self.W    = W.clone(detach=True) if W is not None else None
+        self.step = step
+
+    def __repr__(self) -> str:
+        return (
+            f"WorkspaceSnapshot(step={self.step}, "
+            f"V={tuple(self.V.shape)}, "
+            f"E={tuple(self.E.shape) if self.E is not None else None}, "
+            f"W={'present' if self.W is not None else None})"
+        )
+
+
 class LatentWorkspace(nn.Module):
     """Unified Latent Workspace supporting Vector, Graph, and Adaptive Resolution modes.
 
@@ -25,6 +65,8 @@ class LatentWorkspace(nn.Module):
       - Phase 4 (persistence): latent state carried across sequence turns via PersistenceGate.
       - Phase 5 (external):   coupled internal-external loop with structured scratchpad.
         Each reasoning step: Read(V,W) → EdgeAdapt(V,E) → Activity → MsgPass → Write(W,V,A).
+      - Phase 6 (causal):    snapshot() / restore() for mid-trajectory branching;
+        V_at_step, E_at_step, W_at_step lists emitted in info dict.
     """
 
     def __init__(
@@ -98,6 +140,68 @@ class LatentWorkspace(nn.Module):
                 self.edge_adapter = None
         else:
             raise ValueError(f"Unknown workspace model type: {config.type}")
+
+        # Phase 6: cached snapshot set by snapshot() / cleared by restore()
+        self._snapshot: WorkspaceSnapshot | None = None
+
+    # -----------------------------------------------------------------------
+    # Phase 6 — Snapshot / Restore
+    # -----------------------------------------------------------------------
+
+    def snapshot(
+        self,
+        V: Tensor,
+        E: Tensor | None,
+        W: ExternalWorkspaceState | None,
+        step: int,
+    ) -> WorkspaceSnapshot:
+        """Capture the current mid-trajectory state for causal branching.
+
+        Stores the snapshot internally *and* returns it for convenience.
+        The snapshot is detached from the computation graph — it is intended
+        for use in no_grad() intervention experiments, not for training.
+
+        Parameters
+        ----------
+        V    : Tensor[B, N, d] — latent slot state at 'step'.
+        E    : Tensor[B, N, N, d_e] or None — edge tensor at 'step'.
+        W    : ExternalWorkspaceState or None — external scratchpad at 'step'.
+        step : Which reasoning step index was just completed.
+
+        Returns
+        -------
+        WorkspaceSnapshot — the captured state.
+        """
+        snap = WorkspaceSnapshot(V=V, E=E, W=W, step=step)
+        self._snapshot = snap
+        return snap
+
+    def restore(self, snap: WorkspaceSnapshot | None = None) -> WorkspaceSnapshot:
+        """Retrieve a previously captured snapshot.
+
+        Parameters
+        ----------
+        snap : If provided, use this snapshot directly (ignores cached one).
+               If None, returns the most recent snapshot set by snapshot().
+
+        Returns
+        -------
+        WorkspaceSnapshot
+
+        Raises
+        ------
+        RuntimeError if no snapshot is available.
+        """
+        target = snap if snap is not None else self._snapshot
+        if target is None:
+            raise RuntimeError(
+                "No snapshot available. Call snapshot() before restore()."
+            )
+        return target
+
+    def clear_snapshot(self) -> None:
+        """Discard the cached snapshot (call between unrelated forward passes)."""
+        self._snapshot = None
 
     def forward(
         self,
@@ -176,11 +280,19 @@ class LatentWorkspace(nn.Module):
         activity_trajectory: list[Tensor] = []
         workspace_trajectory: list[ExternalWorkspaceState] = []
         read_weights_trajectory: list[Tensor] = []
+        # Phase 6: per-step state snapshots for causal branching
+        V_at_step: list[Tensor] = []
+        E_at_step: list[Tensor | None] = []
+        W_at_step: list[ExternalWorkspaceState | None] = []
 
         for _t in range(self.config.reasoning_steps):
             # 1. Read from external workspace (before message passing)
             if use_external and workspace is not None and self.read_controller is not None:
-                V, rw = self.read_controller(V, A if A is not None else torch.ones((B, N), device=V.device, dtype=V.dtype), workspace)
+                V, rw = self.read_controller(
+                    V,
+                    A if A is not None else torch.ones((B, N), device=V.device, dtype=V.dtype),
+                    workspace,
+                )
                 read_weights_trajectory.append(rw.detach())
 
             # 2. Dynamic edge adaptation
@@ -204,7 +316,17 @@ class LatentWorkspace(nn.Module):
             # 5. Write to external workspace
             if use_external and workspace is not None and self.write_controller is not None:
                 workspace = self.write_controller(workspace, V, A, step=_t)
+                assert workspace is not None
                 workspace_trajectory.append(workspace.clone(detach=True))
+
+            # Phase 6: record post-step state for causal branching
+            V_at_step.append(V.detach().clone())
+            E_at_step.append(E.detach().clone() if E is not None else None)
+            W_at_step.append(
+                workspace.clone(detach=True)
+                if (use_external and workspace is not None)
+                else None
+            )
 
         # Final activity for readout (recompute if dynamic)
         if self.activity_gate is not None:
@@ -222,6 +344,10 @@ class LatentWorkspace(nn.Module):
             "h_final": h_final,
             "workspace_trajectory": workspace_trajectory,
             "read_weights_trajectory": read_weights_trajectory,
+            # Phase 6
+            "V_at_step": V_at_step,
+            "E_at_step": E_at_step,
+            "W_at_step": W_at_step,
         }
         return h_final, info
 
@@ -298,6 +424,10 @@ class LatentWorkspace(nn.Module):
         activity_trajectory: list[Tensor] = []
         workspace_trajectory: list[ExternalWorkspaceState] = []
         read_weights_trajectory: list[Tensor] = []
+        # Phase 6: per-step state for causal branching
+        V_at_step: list[Tensor] = []
+        E_at_step: list[Tensor | None] = []
+        W_at_step: list[ExternalWorkspaceState | None] = []
         A_current: Tensor = torch.ones((B, N), device=device, dtype=dtype)
 
         for _t in range(T_max):
@@ -326,7 +456,17 @@ class LatentWorkspace(nn.Module):
             # 5. Write to external workspace
             if use_external and workspace is not None and self.write_controller is not None:
                 workspace = self.write_controller(workspace, V, A_current, step=_t)
+                assert workspace is not None
                 workspace_trajectory.append(workspace.clone(detach=True))
+
+            # Phase 6: snapshot post-step state for causal branching
+            V_at_step.append(V.detach().clone())
+            E_at_step.append(E.detach().clone() if E is not None else None)
+            W_at_step.append(
+                workspace.clone(detach=True)
+                if (use_external and workspace is not None)
+                else None
+            )
 
             # 6. Halt probability
             h_t = self.halt_gate(V, A_current)  # [B], differentiable
@@ -392,14 +532,18 @@ class LatentWorkspace(nn.Module):
             "A_final": A_final,
             "E_final": E,
             "h_final": h_acc,
-            # Phase 3 specific
+            # Phase 3
             "halt_probs": halt_probs,
             "ponder_weights": ponder_weights,
             "n_steps": n_steps,
             "effective_steps": n_steps.mean().item(),
-            # Phase 5 specific
+            # Phase 5
             "workspace_trajectory": workspace_trajectory,
             "read_weights_trajectory": read_weights_trajectory,
+            # Phase 6
+            "V_at_step": V_at_step,
+            "E_at_step": E_at_step,
+            "W_at_step": W_at_step,
         }
         return h_acc, info
 

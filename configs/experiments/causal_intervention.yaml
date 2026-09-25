@@ -1,0 +1,97 @@
+# Phase 6 — Causal Intervention Config
+# Inherits the full Phase 5 architecture (Model F) and adds intervention
+# parameters for the causal experiment sweep.
+#
+# Usage:
+#   python scripts/run_causal_experiment.py \
+#       --config configs/experiments/causal_intervention.yaml \
+#       --checkpoint results/external_ablation/best.pt \
+#       --output results/causal_intervention/
+
+# === Model (identical to Phase 5) ===
+model:
+  type: graph
+  latent_slots: 8
+  latent_dim: 32
+  edge_dim: 1
+  msg_hidden_dim: 64
+  update_hidden_dim: 64
+  num_msg_layers: 1
+  reasoning_steps: 4
+  max_reasoning_steps: 16
+  decoder_hidden_dim: 64
+  num_classes: 2
+
+# === Activity (ON — required for top-K salience scoring) ===
+activity:
+  enabled: true
+  gate_hidden_dim: 32
+  sparsity_lambda: 0.01
+  entropy_lambda: 0.001
+
+# === Resolution (ON — adaptive halting) ===
+resolution:
+  enabled: true
+  halt_threshold: 0.8
+  ponder_lambda: 0.01
+  max_reasoning_steps: 16
+
+# === External Workspace (ON — Phase 5 coupled loop) ===
+external:
+  enabled: true
+  num_slots: 16
+  record_dim: 32
+  num_types: 7
+  write_top_k: 3
+  write_dedup: true
+  read_heads: 2
+  read_gate: true
+  edge_adaptation: true
+  edge_hidden_dim: 32
+  detach_workspace_between_turns: true
+
+# === Persistence (ON — latent carry-over across turns) ===
+persistence:
+  enabled: true
+  gate_hidden_dim: 32
+  detach_between_turns: true
+
+# === Data (same as Phase 5 evaluation split) ===
+data:
+  task_family: affordability_sequence
+  sequence_turns: 3
+  ops_per_turn: 1
+  incremental_turns: false
+  num_train: 3000
+  num_val: 500
+  num_test: 500
+  max_entities: 4
+  max_operations: 2
+  distractor_ratio: 0.0
+  seed: 42
+
+# === Training (Phase 6 does not train; used only for batch_size) ===
+training:
+  epochs: 0
+  batch_size: 8
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+  grad_clip: 1.0
+  scheduler: cosine
+  log_every: 10
+  eval_every: 1
+  checkpoint_dir: results/causal_intervention
+
+# === Causal Intervention Parameters ===
+# These are read directly by run_causal_experiment.py via CLI args.
+# Documented here for reproducibility.
+#
+# intervention_step   : 2       # t₁ — snapshot at step 2 (mid-reasoning)
+# relevant_slot       : 0       # slot expected to hold budget/entity info
+# irrelevant_slot     : 15      # slot expected to be unused (negative control)
+# swap_noise_std      : 2.0     # sigma for SWAP_VALUE perturbation
+# randomise_std       : 1.0     # sigma for RANDOMISE_RECORD noise
+# num_eval_batches    : 50      # number of batches to average over
+
+# === Reproducibility ===
+seed: 42
