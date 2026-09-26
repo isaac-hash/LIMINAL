@@ -45,13 +45,19 @@ class ExternalConfig:
     num_slots: int = 16                       # M <= 32 external record capacity
     record_dim: int = 32                      # d_ext payload dimension (default = latent_dim)
     num_types: int = 7                        # EMPTY, ENTITY, ATTRIBUTE, RELATION, OPERATION, CONSTRAINT, STATUS
-    write_top_k: int = 2                      # Top-K latent slots written per reasoning step
+    write_top_k: int = 2                      # Top-K latent slots written per reasoning step (used when learned_gate=False)
     write_dedup: bool = True                  # Skip re-writing a slot that already wrote in this forward pass
     read_heads: int = 2                       # Attention heads in read controller
     read_gate: bool = True                    # Per-slot gated injection: V' = V + gate * R
     edge_adaptation: bool = True             # Dynamic e_ij' = MLP(v_i, v_j, e_ij)
     edge_hidden_dim: int = 32                # Hidden width of edge adaptation MLP
     detach_workspace_between_turns: bool = True  # Detach W between sequence turns (mirrors PersistenceConfig)
+    # Phase 7: learned write gate (Gumbel-softmax)
+    learned_gate: bool = False               # If True, use LearnedWriteController instead of top-K heuristic
+    gumbel_tau_start: float = 1.0            # Initial Gumbel temperature (high = soft/uniform)
+    gumbel_tau_end: float = 0.1             # Final Gumbel temperature (low = near-discrete)
+    gumbel_anneal_epochs: int = 30          # Epochs over which tau is annealed from start to end
+    write_sparsity_lambda: float = 0.01     # L1 coefficient on write gate to encourage selectivity
 
 
 

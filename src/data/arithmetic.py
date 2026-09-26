@@ -21,6 +21,15 @@ class ArithmeticGenerator:
         """Generate full train, val, and test splits with deterministic seeding."""
         if self.config.task_family == "affordability_sequence":
             return self.generate_sequence_dataset()
+        if self.config.task_family == "ext_sensitive":
+            from src.data.externalisation_sensitive import ExternalisationSensitiveGenerator
+            gen = ExternalisationSensitiveGenerator(
+                seed=self.seed,
+                num_train=self.config.num_train,
+                num_val=self.config.num_val,
+                num_test=self.config.num_test,
+            )
+            return gen.generate_dataset()
         splits = {
             "train": self._generate_split("train", self.config.num_train, seed_offset=0),
             "val": self._generate_split("val", self.config.num_val, seed_offset=100000),
@@ -110,6 +119,12 @@ class ArithmeticGenerator:
             rng2 = random.Random(item_seed)
             seq = self._generate_affordability_sequence(rng2, item_seed, split_name, f"seq_{split_name}_{i:06d}")
             return seq["turns"][0]  # first turn only
+        elif family == "ext_sensitive":
+            # Delegate to ExternalisationSensitiveGenerator for a single turn.
+            from src.data.externalisation_sensitive import ExternalisationSensitiveGenerator
+            gen = ExternalisationSensitiveGenerator(seed=item_seed, num_train=1, num_val=1, num_test=1)
+            seq = gen._generate_sequence(rng, item_seed, split_name, f"ext_{split_name}_{i:06d}")
+            return seq["turns"][0]
         else:
             raise ValueError(f"Unknown task family: {family}")
 

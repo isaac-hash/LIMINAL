@@ -117,19 +117,19 @@ def test_write_controller_top_k_and_dedup():
     write_ctrl = WriteController(D, EXT_CFG)
 
     # First write: top-3 slots should fill 3 empty slots
-    ws = write_ctrl(ws, V, A, step=0)
+    ws, _ = write_ctrl(ws, V, A, step=0)
     occupied = ws.mask[0].sum().item()
     assert occupied == 3, f"Expected 3 occupied slots after first write, got {occupied}"
 
     # Dedup: second call should skip slots already written this pass
-    ws = write_ctrl(ws, V, A, step=0)
+    ws, _ = write_ctrl(ws, V, A, step=0)
     occupied_after = ws.mask[0].sum().item()
     # No new slots written because wrote_this_pass is set for top-3
     assert occupied_after == occupied, "Dedup should prevent re-writing same slots in same pass"
 
     # After reset_pass_flags, writing again should work
     ws.reset_pass_flags()
-    ws = write_ctrl(ws, V, A, step=1)
+    ws, _ = write_ctrl(ws, V, A, step=1)
     occupied_final = ws.mask[0].sum().item()
     assert occupied_final >= occupied, "After flag reset, new writes should proceed"
 
@@ -145,13 +145,13 @@ def test_write_controller_lru_eviction():
     write_ctrl = WriteController(D, cfg)
 
     # Step 0: fill all 3 slots
-    ws = write_ctrl(ws, V, A, step=0)
+    ws, _ = write_ctrl(ws, V, A, step=0)
     assert ws.mask[0].all(), "All 3 slots should be occupied after first write"
     assert (ws.step_written[0] == 0).all(), "All slots written at step 0"
 
     # Reset dedup flags and write at step 1 — must evict since workspace is full
     ws.reset_pass_flags()
-    ws = write_ctrl(ws, V, A, step=1)
+    ws, _ = write_ctrl(ws, V, A, step=1)
 
     # At least one slot should now have step_written = 1 (it was evicted and re-written)
     assert (ws.step_written[0] == 1).any(), "LRU eviction should update step_written to step=1"
@@ -168,7 +168,7 @@ def test_write_gradient_flows_through_payload():
     ws = make_empty_ws()
     write_ctrl = WriteController(D, EXT_CFG)
 
-    ws = write_ctrl(ws, V, A, step=0)
+    ws, _ = write_ctrl(ws, V, A, step=0)
 
     # Downstream loss on the payload
     loss = ws.records.sum()

@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from src.utils.config import Config
 from src.training.losses import LossComputer
 from src.utils.checkpoint import save_checkpoint, load_checkpoint
+from src.models.externaliser import LearnedWriteController
 
 
 class SequentialTrainer:
@@ -68,6 +69,9 @@ class SequentialTrainer:
 
             if self.scheduler is not None:
                 self.scheduler.step()
+
+            # Phase 7: anneal Gumbel temperature on the write gate each epoch
+            self._maybe_anneal_tau(epoch)
 
             log_entry = {
                 "epoch": epoch,
@@ -215,6 +219,33 @@ class SequentialTrainer:
             eval_metrics[f"acc_turn_{t+1}"] = turn_correct[t] / max(1, turn_counts[t])
 
         return eval_metrics
+
+    def _maybe_anneal_tau(self, epoch: int) -> None:
+        """Linearly decay the Gumbel temperature of a LearnedWriteController.
+
+        Does nothing if the model is not using a learned gate.
+        Tau is annealed from gumbel_tau_start -> gumbel_tau_end over
+        gumbel_anneal_epochs epochs, then held at gumbel_tau_end.
+        """
+        ext = self.config.external
+        if not (ext.enabled and ext.learned_gate):
+            return
+
+        # Locate write controller through the model hierarchy
+        write_ctrl = None
+        if hasattr(self.model, "base_model") and hasattr(self.model.base_model, "workspace"):
+            write_ctrl = getattr(self.model.base_model.workspace, "write_controller", None)
+        elif hasattr(self.model, "workspace"):
+            write_ctrl = getattr(self.model, "write_controller", None)
+
+        if not isinstance(write_ctrl, LearnedWriteController):
+            return
+
+        # Linear schedule
+        anneal_epochs = max(1, ext.gumbel_anneal_epochs)
+        progress = min(epoch / anneal_epochs, 1.0)
+        tau = ext.gumbel_tau_start + progress * (ext.gumbel_tau_end - ext.gumbel_tau_start)
+        write_ctrl.set_tau(tau)
 
     def _maybe_save_checkpoints(self, epoch: int, val_metrics: dict[str, float]) -> None:
         """Save best.pt and last.pt checkpoints."""

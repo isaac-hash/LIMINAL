@@ -75,5 +75,20 @@ class LossComputer:
             breakdown["mean_steps"] = n_steps.mean().item()
             breakdown["loss_total"] = total_loss.item()
 
+        # Phase 7: write sparsity penalty (LearnedWriteController only)
+        # Applied when external workspace is enabled and write_gate_mean is present.
+        if (
+            self.config.external.enabled
+            and self.config.external.learned_gate
+            and info is not None
+            and info.get("write_gate_mean") is not None
+        ):
+            gate_mean = info["write_gate_mean"]
+            loss_write_sparse = self.config.external.write_sparsity_lambda * gate_mean
+            total_loss = total_loss + loss_write_sparse
+            breakdown["loss_write_sparse"] = loss_write_sparse.item()
+            breakdown["write_gate_mean"] = gate_mean.item()
+            breakdown["loss_total"] = total_loss.item()
+
         return total_loss, breakdown
 

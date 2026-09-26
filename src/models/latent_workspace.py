@@ -8,7 +8,7 @@ from src.models.readout import InvariantReadout
 from src.models.activity import ActivityGate
 from src.models.resolution import HaltGate
 from src.models.external_workspace import ExternalWorkspaceState
-from src.models.externaliser import WriteController
+from src.models.externaliser import WriteController, LearnedWriteController
 from src.models.reader import ReadController
 from src.models.relationships import EdgeAdapter
 
@@ -65,8 +65,8 @@ class LatentWorkspace(nn.Module):
       - Phase 4 (persistence): latent state carried across sequence turns via PersistenceGate.
       - Phase 5 (external):   coupled internal-external loop with structured scratchpad.
         Each reasoning step: Read(V,W) → EdgeAdapt(V,E) → Activity → MsgPass → Write(W,V,A).
-      - Phase 6 (causal):    snapshot() / restore() for mid-trajectory branching;
-        V_at_step, E_at_step, W_at_step lists emitted in info dict.
+      - Phase 7 (learned):  WriteController replaced by LearnedWriteController using
+        Gumbel-softmax slot selection; write gate trained end-to-end with sparsity reg.
     """
 
     def __init__(
@@ -122,9 +122,14 @@ class LatentWorkspace(nn.Module):
             else:
                 self.halt_gate = None
 
-            # Phase 5: optional external workspace controllers
+            # Phase 5/7: optional external workspace controllers
             if external_config is not None and external_config.enabled:
-                self.write_controller = WriteController(config.latent_dim, external_config)
+                if external_config.learned_gate:
+                    self.write_controller: WriteController | LearnedWriteController | None = (
+                        LearnedWriteController(config.latent_dim, external_config)
+                    )
+                else:
+                    self.write_controller = WriteController(config.latent_dim, external_config)
                 self.read_controller = ReadController(config.latent_dim, external_config)
                 if external_config.edge_adaptation:
                     self.edge_adapter = EdgeAdapter(
@@ -285,6 +290,10 @@ class LatentWorkspace(nn.Module):
         E_at_step: list[Tensor | None] = []
         W_at_step: list[ExternalWorkspaceState | None] = []
 
+        # Phase 7: accumulate write gate means and gates for selectivity analysis
+        write_gate_means: list[Tensor] = []
+        write_gate_trajectory: list[Tensor] = []
+
         for _t in range(self.config.reasoning_steps):
             # 1. Read from external workspace (before message passing)
             if use_external and workspace is not None and self.read_controller is not None:
@@ -315,9 +324,15 @@ class LatentWorkspace(nn.Module):
 
             # 5. Write to external workspace
             if use_external and workspace is not None and self.write_controller is not None:
-                workspace = self.write_controller(workspace, V, A, step=_t)
+                workspace, write_info = self.write_controller(workspace, V, A, step=_t)
                 assert workspace is not None
                 workspace_trajectory.append(workspace.clone(detach=True))
+                if "write_gate_mean" in write_info:
+                    write_gate_means.append(write_info["write_gate_mean"])
+                if "write_gate_hard" in write_info:
+                    write_gate_trajectory.append(write_info["write_gate_hard"].detach())
+                elif "write_gate" in write_info:
+                    write_gate_trajectory.append(write_info["write_gate"].detach())
 
             # Phase 6: record post-step state for causal branching
             V_at_step.append(V.detach().clone())
@@ -335,6 +350,11 @@ class LatentWorkspace(nn.Module):
 
         h_final = self.readout(V, A)
 
+        # Mean write gate over all steps (for sparsity loss in Phase 7)
+        write_gate_mean_total: Tensor | None = (
+            torch.stack(write_gate_means).mean() if write_gate_means else None
+        )
+
         info: dict[str, Any] = {
             "trajectory": trajectory,
             "activity_trajectory": activity_trajectory,
@@ -348,6 +368,9 @@ class LatentWorkspace(nn.Module):
             "V_at_step": V_at_step,
             "E_at_step": E_at_step,
             "W_at_step": W_at_step,
+            # Phase 7
+            "write_gate_mean": write_gate_mean_total,
+            "write_gate_trajectory": write_gate_trajectory,
         }
         return h_final, info
 
@@ -430,6 +453,10 @@ class LatentWorkspace(nn.Module):
         W_at_step: list[ExternalWorkspaceState | None] = []
         A_current: Tensor = torch.ones((B, N), device=device, dtype=dtype)
 
+        # Phase 7: accumulate write gate means and gates for selectivity analysis
+        write_gate_means_adapt: list[Tensor] = []
+        write_gate_trajectory_adapt: list[Tensor] = []
+
         for _t in range(T_max):
             # 1. Read from external workspace (before activity + message passing)
             if use_external and workspace is not None and self.read_controller is not None:
@@ -455,9 +482,15 @@ class LatentWorkspace(nn.Module):
 
             # 5. Write to external workspace
             if use_external and workspace is not None and self.write_controller is not None:
-                workspace = self.write_controller(workspace, V, A_current, step=_t)
+                workspace, write_info = self.write_controller(workspace, V, A_current, step=_t)
                 assert workspace is not None
                 workspace_trajectory.append(workspace.clone(detach=True))
+                if "write_gate_mean" in write_info:
+                    write_gate_means_adapt.append(write_info["write_gate_mean"])
+                if "write_gate_hard" in write_info:
+                    write_gate_trajectory_adapt.append(write_info["write_gate_hard"].detach())
+                elif "write_gate" in write_info:
+                    write_gate_trajectory_adapt.append(write_info["write_gate"].detach())
 
             # Phase 6: snapshot post-step state for causal branching
             V_at_step.append(V.detach().clone())
@@ -474,10 +507,6 @@ class LatentWorkspace(nn.Module):
             # Remainder: probability budget remaining before this step
             remainder = (1.0 - cumulative_h).clamp(min=0.0)
 
-            # Ponder weight:
-            #   final step (just halted)  -> remainder
-            #   non-halted step           -> h_t
-            #   already halted            -> 0
             not_halted = ~halted                                                # [B]
             would_halt = (cumulative_h + h_t >= rc.halt_threshold) & not_halted  # [B]
 
@@ -525,6 +554,11 @@ class LatentWorkspace(nn.Module):
         step_indices = torch.arange(1, T_actual + 1, device=device, dtype=dtype).unsqueeze(0)
         n_steps = (ponder_weights * step_indices).sum(dim=1)       # [B]
 
+        # Mean write gate over all steps (for sparsity loss in Phase 7)
+        write_gate_mean_total_adapt: Tensor | None = (
+            torch.stack(write_gate_means_adapt).mean() if write_gate_means_adapt else None
+        )
+
         info: dict[str, Any] = {
             "trajectory": trajectory,
             "activity_trajectory": activity_trajectory,
@@ -544,6 +578,9 @@ class LatentWorkspace(nn.Module):
             "V_at_step": V_at_step,
             "E_at_step": E_at_step,
             "W_at_step": W_at_step,
+            # Phase 7
+            "write_gate_mean": write_gate_mean_total_adapt,
+            "write_gate_trajectory": write_gate_trajectory_adapt,
         }
         return h_acc, info
 
