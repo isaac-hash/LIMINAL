@@ -120,7 +120,7 @@ class SequentialTrainer:
                 # Filter tensor components in info for valid sequences
                 sliced_info: dict[str, Any] = {}
                 for k, v in info_t.items():
-                    if isinstance(v, Tensor) and v.shape[0] == B:
+                    if isinstance(v, Tensor) and v.ndim > 0 and v.shape[0] == B:
                         sliced_info[k] = v[valid_indices]
                     else:
                         sliced_info[k] = v
@@ -194,7 +194,7 @@ class SequentialTrainer:
 
                     sliced_info: dict[str, Any] = {}
                     for k, v in info_t.items():
-                        if isinstance(v, Tensor) and v.shape[0] == B:
+                        if isinstance(v, Tensor) and v.ndim > 0 and v.shape[0] == B:
                             sliced_info[k] = v[valid_indices]
                         else:
                             sliced_info[k] = v

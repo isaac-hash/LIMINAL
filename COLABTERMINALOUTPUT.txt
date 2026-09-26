@@ -1,0 +1,23 @@
+Connecting to Colab terminal...
+
+Connected to Colab terminal.
+─── Level 3 Exit Criterion Check ─────────────────────────────────
+─── Level 3 Exit Criterion Check ─────────────────────────────────
+
+─── Level 3 Exit Criterion Check ─────────────────────────────────
+  Mean relevant corruption L2    : 0.1280
+  Irrelevant control L2          : 0.0224
+  Relevant / Irrelevant L2 ratio : 5.72×
+  Mean |Acc Δ| relevant          : 0.0008
+  |Acc Δ| irrelevant             : 0.0000
+
+⚠️   L2 criterion met, accuracy delta borderline — check task difficulty.
+
+Per-batch results → results/causal_intervention/causal_experiment_batches.json
+Aggregated results → results/causal_intervention/causal_experiment_aggregated.json
+Summary CSV        → results/causal_intervention/causal_experiment_summary.csv
+  Copied to Drive: /content/drive/MyDrive/LIMINAL_results/causal_experiment_batches.json
+  Copied to Drive: /content/drive/MyDrive/LIMINAL_results/causal_experiment_aggregated.json
+  Copied to Drive: /content/drive/MyDrive/LIMINAL_results/causal_experiment_summary.csv
+
+Phase 6 causal intervention experiment complete.
