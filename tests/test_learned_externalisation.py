@@ -32,6 +32,7 @@ from src.models.externaliser import WriteController, LearnedWriteController
 from src.models.latent_workspace import LatentWorkspace
 from src.training.losses import LossComputer
 from src.evaluation.selectivity_analysis import compute_gate_stats, SelectivityAnalyser
+from src.utils.checkpoint import resolve_checkpoint_path
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -390,3 +391,23 @@ def test_tau_annealing_decreases():
     # Monotonically decreasing
     for i in range(len(taus) - 1):
         assert taus[i] >= taus[i + 1]
+
+
+# ── 23. resolve_checkpoint_path: finds local and Drive fallback paths ────────
+
+def test_resolve_checkpoint_path_local(tmp_path):
+    ckpt = tmp_path / "model.pt"
+    ckpt.touch()
+    resolved = resolve_checkpoint_path(str(ckpt))
+    assert resolved == ckpt
+
+
+def test_resolve_checkpoint_path_drive_fallback(tmp_path):
+    drive_dir = tmp_path / "drive_results"
+    drive_dir.mkdir()
+    drive_ckpt = drive_dir / "best.pt"
+    drive_ckpt.touch()
+    # Path relative to nonexistent local path should resolve to Drive/best.pt
+    resolved = resolve_checkpoint_path("results/externalisation_comparison/best.pt", drive_path=drive_dir)
+    assert resolved == drive_ckpt
+

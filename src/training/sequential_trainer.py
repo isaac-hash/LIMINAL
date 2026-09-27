@@ -1,6 +1,7 @@
 import csv
 import json
 from pathlib import Path
+import shutil
 from typing import Any
 import torch
 import torch.nn as nn
@@ -276,6 +277,12 @@ class SequentialTrainer:
                 config=self.config,
                 drive_path=drive_best,
             )
+            print(f"[Checkpoint] Epoch {epoch:02d}: Saved new best model to {best_path} (acc: {val_acc * 100:.2f}%)")
+            if self.drive_path:
+                exp_drive_dir = Path(self.drive_path) / self.checkpoint_dir.name
+                exp_drive_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(best_path, exp_drive_dir / "best.pt")
+                print(f"[Drive Backup] Mirrored best model to {drive_best} and {exp_drive_dir / 'best.pt'}")
 
     def _write_metrics_csv(self, log_entry: dict[str, Any]) -> None:
         csv_path = self.checkpoint_dir / "metrics.csv"

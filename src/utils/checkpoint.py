@@ -77,3 +77,49 @@ def load_checkpoint(
     config = checkpoint.get("config", None)
 
     return epoch, metrics, config
+
+
+def resolve_checkpoint_path(
+    path: str | Path | None,
+    drive_path: str | Path | None = None,
+) -> Path | None:
+    """Resolve a checkpoint path across local directory, Colab paths, and Drive.
+
+    Searches candidates in order:
+      1. Given path directly
+      2. Given path resolved to absolute path
+      3. /content/LIMINAL / path (standard Colab clone root)
+      4. /content / path (Colab default workspace)
+      5. drive_path / <parent_dir_name> / <filename>
+      6. drive_path / <filename>
+      7. drive_path / path
+      8. drive_path / externalisation_comparison / <filename>
+      9. drive_path / external_ablation / <filename>
+    """
+    if path is None:
+        return None
+
+    raw_path = Path(path)
+    candidates = [
+        raw_path,
+        raw_path.resolve(),
+        Path("/content/LIMINAL") / raw_path,
+        Path("/content") / raw_path,
+    ]
+
+    if drive_path:
+        dp = Path(drive_path)
+        candidates.extend([
+            dp / raw_path.parent.name / raw_path.name,
+            dp / raw_path.name,
+            dp / raw_path,
+            dp / "externalisation_comparison" / raw_path.name,
+            dp / "external_ablation" / raw_path.name,
+        ])
+
+    for cand in candidates:
+        if cand.exists() and cand.is_file():
+            return cand
+
+    return None
+

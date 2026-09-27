@@ -42,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.utils.device import print_hardware_info
 from src.utils.config import load_config, set_seed
-from src.utils.checkpoint import load_checkpoint
+from src.utils.checkpoint import load_checkpoint, resolve_checkpoint_path
 from src.data.arithmetic import ArithmeticGenerator
 from src.data.dataset import Vocabulary
 from src.data.sequence_dataset import SequenceReasoningDataset, collate_sequence_batch
@@ -222,12 +222,12 @@ def main() -> None:
         external_config=config.external,
     ).to(device)
 
-    ckpt_path = Path(args.checkpoint)
-    if ckpt_path.exists():
+    ckpt_path = resolve_checkpoint_path(args.checkpoint, args.drive_path)
+    if ckpt_path is not None:
         epoch, _metrics, _cfg = load_checkpoint(str(ckpt_path), model=model, device=device)
         print(f"  Loaded weights from {ckpt_path} (epoch {epoch})\n")
     else:
-        print(f"  ⚠️  Checkpoint not found at {ckpt_path}. Running with random weights.\n")
+        print(f"  ⚠️  Checkpoint not found at {args.checkpoint} (or on Drive). Running with random weights.\n")
 
     model.eval()
     workspace_model = model.base_model.workspace

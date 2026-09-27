@@ -45,7 +45,7 @@ from torch.utils.data import DataLoader
 
 from src.utils.device import print_hardware_info
 from src.utils.config import load_config, set_seed
-from src.utils.checkpoint import load_checkpoint
+from src.utils.checkpoint import load_checkpoint, resolve_checkpoint_path
 from src.data.arithmetic import ArithmeticGenerator
 from src.data.dataset import Vocabulary
 from src.data.sequence_dataset import SequenceReasoningDataset, collate_sequence_batch
@@ -300,12 +300,21 @@ def main():
         external_config=config.external,
     ).to(device)
 
-    chk_path = Path(args.checkpoint)
-    if chk_path.exists():
+    chk_path = resolve_checkpoint_path(args.checkpoint, args.drive_path)
+    if chk_path is not None:
         print(f"Loading learned gate weights from {chk_path}...")
         load_checkpoint(chk_path, model=model, device=device)
     else:
-        print(f"  ⚠️ Checkpoint {chk_path} not found. Running with initialised weights.")
+        searched = [args.checkpoint, f"/content/LIMINAL/{args.checkpoint}"]
+        if args.drive_path:
+            searched.extend([
+                f"{args.drive_path}/best.pt",
+                f"{args.drive_path}/externalisation_comparison/best.pt",
+            ])
+        raise FileNotFoundError(
+            f"Checkpoint not found for learned gate model. Looked in: {searched}.\n"
+            "Please ensure the model has finished training before running selectivity analysis."
+        )
 
     # 4. Evaluate Learned Model
     analyser = SelectivityAnalyser(
@@ -319,12 +328,12 @@ def main():
 
     # 5. Evaluate Baseline Model if provided
     baseline_eval = None
-    if args.baseline_checkpoint and Path(args.baseline_checkpoint).exists():
-        print(f"Loading baseline weights from {args.baseline_checkpoint}...")
+    baseline_path = resolve_checkpoint_path(args.baseline_checkpoint, args.drive_path)
+    if baseline_path is not None:
+        print(f"Loading baseline weights from {baseline_path}...")
         # Create baseline model with top-K
-        import copy
-        b_ext = copy.deepcopy(config.external)
-        b_ext.learned_gate = False
+        import dataclasses
+        b_ext = dataclasses.replace(config.external, learned_gate=False)
         baseline_model = SequentialReasoningModel(
             config=config.model,
             vocab=vocab,
@@ -333,10 +342,13 @@ def main():
             persistence_config=config.persistence,
             external_config=b_ext,
         ).to(device)
-        load_checkpoint(args.baseline_checkpoint, model=baseline_model, device=device)
+        load_checkpoint(baseline_path, model=baseline_model, device=device)
         b_analyser = SelectivityAnalyser(config.model.latent_slots, config.external.write_top_k)
         print("Evaluating baseline model...")
         baseline_eval = evaluate_model(baseline_model, test_loader, device, b_analyser, num_batches=args.num_eval_batches)
+    elif args.baseline_checkpoint:
+        print(f"  Note: Baseline checkpoint not found at {args.baseline_checkpoint} (or on Drive).")
+        print(f"        Comparing against analytical top-K baseline (K={config.external.write_top_k}).")
 
     # 6. Exit Criterion Check
     k_baseline = float(config.external.write_top_k)
