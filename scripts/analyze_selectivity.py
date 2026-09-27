@@ -216,7 +216,7 @@ def generate_plots(
         plt.close()
         generated.append(p1)
 
-    # 2. Accuracy Comparison (Learned vs Baseline)
+    # 2. Accuracy Comparison (Learned vs Baseline, or Standalone)
     if baseline_eval is not None:
         turns = list(learned_eval["per_turn_acc"].keys())
         learned_vals = [learned_eval["per_turn_acc"][t] * 100 for t in turns]
@@ -230,6 +230,42 @@ def generate_plots(
         plt.bar(x + width/2, learned_vals, width, label="Learned Write Gate", color="#2E7D32", edgecolor="#1B5E20")
 
         plt.title("Per-Turn Reasoning Accuracy Comparison", fontsize=13, fontweight="bold", pad=12)
+        plt.xlabel("Sequence Turn", fontsize=11)
+        plt.ylabel("Accuracy (%)", fontsize=11)
+        plt.xticks(x, [t.replace("_", " ").title() for t in turns])
+        plt.ylim(0, 105)
+        plt.grid(axis="y", linestyle=":", alpha=0.6)
+        plt.legend(frameon=True, facecolor="white", edgecolor="#cccccc")
+
+        plt.tight_layout()
+        p2 = output_dir / "accuracy_comparison.png"
+        plt.savefig(p2)
+        plt.close()
+        generated.append(p2)
+    elif "per_turn_acc" in learned_eval and learned_eval["per_turn_acc"]:
+        turns = list(learned_eval["per_turn_acc"].keys())
+        learned_vals = [learned_eval["per_turn_acc"][t] * 100 for t in turns]
+
+        x = np.arange(len(turns))
+        width = 0.45
+
+        plt.figure(figsize=(8, 4.5), dpi=150)
+        bars = plt.bar(x, learned_vals, width, label="Learned Write Gate", color="#2E7D32", edgecolor="#1B5E20")
+
+        for bar in bars:
+            height = bar.get_height()
+            plt.annotate(
+                f"{height:.1f}%",
+                xy=(bar.get_x() + bar.get_width() / 2, height),
+                xytext=(0, 4),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="semibold",
+            )
+
+        plt.title("Per-Turn Reasoning Accuracy (Phase 7 Learned Gate)", fontsize=13, fontweight="bold", pad=12)
         plt.xlabel("Sequence Turn", fontsize=11)
         plt.ylabel("Accuracy (%)", fontsize=11)
         plt.xticks(x, [t.replace("_", " ").title() for t in turns])
@@ -331,21 +367,26 @@ def main():
     baseline_path = resolve_checkpoint_path(args.baseline_checkpoint, args.drive_path)
     if baseline_path is not None:
         print(f"Loading baseline weights from {baseline_path}...")
-        # Create baseline model with top-K
-        import dataclasses
-        b_ext = dataclasses.replace(config.external, learned_gate=False)
-        baseline_model = SequentialReasoningModel(
-            config=config.model,
-            vocab=vocab,
-            activity_config=config.activity,
-            resolution_config=config.resolution,
-            persistence_config=config.persistence,
-            external_config=b_ext,
-        ).to(device)
-        load_checkpoint(baseline_path, model=baseline_model, device=device)
-        b_analyser = SelectivityAnalyser(config.model.latent_slots, config.external.write_top_k)
-        print("Evaluating baseline model...")
-        baseline_eval = evaluate_model(baseline_model, test_loader, device, b_analyser, num_batches=args.num_eval_batches)
+        try:
+            # Create baseline model with top-K
+            import dataclasses
+            b_ext = dataclasses.replace(config.external, learned_gate=False)
+            baseline_model = SequentialReasoningModel(
+                config=config.model,
+                vocab=vocab,
+                activity_config=config.activity,
+                resolution_config=config.resolution,
+                persistence_config=config.persistence,
+                external_config=b_ext,
+            ).to(device)
+            load_checkpoint(baseline_path, model=baseline_model, device=device)
+            b_analyser = SelectivityAnalyser(config.model.latent_slots, config.external.write_top_k)
+            print("Evaluating baseline model...")
+            baseline_eval = evaluate_model(baseline_model, test_loader, device, b_analyser, num_batches=args.num_eval_batches)
+        except Exception as e:
+            print(f"  Warning: Could not load baseline checkpoint from {baseline_path}: {e}")
+            print(f"  Falling back to analytical top-K baseline (K={config.external.write_top_k}).")
+            baseline_eval = None
     elif args.baseline_checkpoint:
         print(f"  Note: Baseline checkpoint not found at {args.baseline_checkpoint} (or on Drive).")
         print(f"        Comparing against analytical top-K baseline (K={config.external.write_top_k}).")

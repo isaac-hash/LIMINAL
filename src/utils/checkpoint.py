@@ -98,11 +98,9 @@ def resolve_checkpoint_path(
       2. Given path resolved to absolute path
       3. /content/LIMINAL / path (standard Colab clone root)
       4. /content / path (Colab default workspace)
-      5. drive_path / <parent_dir_name> / <filename>
-      6. drive_path / <filename>
-      7. drive_path / path
-      8. drive_path / externalisation_comparison / <filename>
-      9. drive_path / external_ablation / <filename>
+      5. drive_path / path
+      6. drive_path / <parent_dir_name> / <filename>
+      7. drive_path / <filename> (only if path is just a filename, without subdirectories)
     """
     if path is None:
         return None
@@ -117,13 +115,10 @@ def resolve_checkpoint_path(
 
     if drive_path:
         dp = Path(drive_path)
-        candidates.extend([
-            dp / raw_path.parent.name / raw_path.name,
-            dp / raw_path.name,
-            dp / raw_path,
-            dp / "externalisation_comparison" / raw_path.name,
-            dp / "external_ablation" / raw_path.name,
-        ])
+        candidates.append(dp / raw_path)
+        if raw_path.parent.name:
+            candidates.append(dp / raw_path.parent.name / raw_path.name)
+        candidates.append(dp / raw_path.name)
 
     for cand in candidates:
         if cand.exists() and cand.is_file():
