@@ -39,6 +39,14 @@ def save_checkpoint(
 
     if drive_path is not None:
         drive_target = Path(drive_path)
+        # Warn if writing to /content/drive without actual Google Drive mount
+        import os
+        if str(drive_target).startswith("/content/drive") and not os.path.ismount("/content/drive"):
+            print(
+                "  ⚠️ [Drive Warning] /content/drive is NOT mounted to Google Drive!\n"
+                "  ⚠️ Checkpoints will not persist across Colab sessions.\n"
+                "  ⚠️ Run 'from google.colab import drive; drive.mount(\"/content/drive\")' in Colab to enable persistent storage."
+            )
         drive_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(target_path, drive_target)
 
