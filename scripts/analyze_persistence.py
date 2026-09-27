@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader
 
 from src.utils.device import print_hardware_info
 from src.utils.config import load_config, set_seed
-from src.utils.checkpoint import load_checkpoint
+from src.utils.checkpoint import load_checkpoint, resolve_checkpoint_path
 from src.data.arithmetic import ArithmeticGenerator
 from src.data.dataset import Vocabulary
 from src.data.sequence_dataset import SequenceReasoningDataset, collate_sequence_batch
@@ -39,6 +39,7 @@ def parse_args():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to persistent model checkpoint (e.g. best.pt)")
     parser.add_argument("--reset-checkpoint", type=str, default=None, help="Path to reset baseline checkpoint (optional)")
     parser.add_argument("--output-dir", type=str, default="results/persistence_graph/analysis")
+    parser.add_argument("--drive-path", type=str, default=None, help="Google Drive backup directory")
     parser.add_argument("--seed", type=int, default=None)
     return parser.parse_args()
 
@@ -205,7 +206,10 @@ def main():
     )
 
     # 2. Evaluate persistent model
-    print(f"Loading persistent checkpoint: {args.checkpoint}")
+    chk_path = resolve_checkpoint_path(args.checkpoint, args.drive_path)
+    if chk_path is None:
+        raise FileNotFoundError(f"Persistent checkpoint not found at {args.checkpoint} (or on Drive)")
+    print(f"Loading persistent checkpoint: {chk_path}")
     model = SequentialReasoningModel(
         config=config.model,
         vocab=vocab,
@@ -213,29 +217,33 @@ def main():
         resolution_config=config.resolution,
         persistence_config=config.persistence,
     ).to(device)
-    load_checkpoint(args.checkpoint, model=model, device=device)
+    load_checkpoint(chk_path, model=model, device=device)
 
     p_accs, slot_gates = collect_sequential_metrics(model, test_loader, device)
 
     # 3. Optionally evaluate reset baseline
     r_accs = None
     if args.reset_checkpoint:
-        print(f"Loading reset baseline checkpoint: {args.reset_checkpoint}")
-        import copy
-        reset_persistence_config = copy.deepcopy(config.persistence)
-        # Force persistence disabled for reset model
-        from src.utils.config import PersistenceConfig
-        reset_config_obj = PersistenceConfig(enabled=False)
+        reset_path = resolve_checkpoint_path(args.reset_checkpoint, args.drive_path)
+        if reset_path is not None:
+            print(f"Loading reset baseline checkpoint: {reset_path}")
+            import copy
+            reset_persistence_config = copy.deepcopy(config.persistence)
+            # Force persistence disabled for reset model
+            from src.utils.config import PersistenceConfig
+            reset_config_obj = PersistenceConfig(enabled=False)
 
-        reset_model = SequentialReasoningModel(
-            config=config.model,
-            vocab=vocab,
-            activity_config=config.activity,
-            resolution_config=config.resolution,
-            persistence_config=reset_config_obj,
-        ).to(device)
-        load_checkpoint(args.reset_checkpoint, model=reset_model, device=device)
-        r_accs, _ = collect_sequential_metrics(reset_model, test_loader, device)
+            reset_model = SequentialReasoningModel(
+                config=config.model,
+                vocab=vocab,
+                activity_config=config.activity,
+                resolution_config=config.resolution,
+                persistence_config=reset_config_obj,
+            ).to(device)
+            load_checkpoint(reset_path, model=reset_model, device=device)
+            r_accs, _ = collect_sequential_metrics(reset_model, test_loader, device)
+        else:
+            print(f"  Note: Reset baseline checkpoint not found at {args.reset_checkpoint} (or on Drive).")
 
     # 4. Generate plots
     print(f"Saving diagnostic plots to {output_dir}...")
@@ -256,6 +264,18 @@ def main():
 
     with open(output_dir / "persistence_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
+
+    # Backup to Drive if requested
+    if args.drive_path:
+        import shutil
+        drive_dir = Path(args.drive_path) / "phase_4_persistence"
+        drive_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(output_dir / "persistence_summary.json", drive_dir / "persistence_summary.json")
+        for p_name in ["accuracy_comparison.png", "persistence_gate_heatmap.png"]:
+            p_file = output_dir / p_name
+            if p_file.exists():
+                shutil.copy2(p_file, drive_dir / p_name)
+        print(f"Backed up results to Drive: {drive_dir}")
 
     print("\n--- Persistence Analysis Summary ---")
     for t in sorted(p_accs.keys()):
