@@ -1,0 +1,29 @@
+{
+  "selectivity": {
+    "mean_slots_written_per_step": 0.0,
+    "selectivity_score": 1.0,
+    "gate_entropy": 1.4828788152954075e-05,
+    "top_k_baseline_slots": 3.0,
+    "per_turn_gate_fraction": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.0,
+      "3": 0.0,
+      "4": 0.0
+    },
+    "num_steps_recorded": 1635
+  },
+  "evaluation": {
+    "acc": 0.9744,
+    "total_samples": 2500,
+    "per_turn_acc": {
+      "turn_1": 1.0,
+      "turn_2": 0.996,
+      "turn_3": 0.974,
+      "turn_4": 0.958,
+      "turn_5": 0.944
+    }
+  },
+  "baseline_evaluation": null,
+  "exit_criterion_met": true
+}
