@@ -30,7 +30,7 @@ ENV/
 *.pt
 *.pth
 *.bin
-results/
+# results/
 data/*.jsonl
 !data/example.jsonl
 wandb/
