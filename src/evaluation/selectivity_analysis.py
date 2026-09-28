@@ -143,10 +143,28 @@ class SelectivityAnalyser:
             for turn, fracs in sorted(self._per_turn.items())
         }
 
+        # Gate health check:
+        # A collapsed gate (0 writes or all writes) is not selective; it is disconnected or unconstrained.
+        is_collapsed_closed = mean_slots < 0.05
+        is_collapsed_open = fraction > 0.95
+        is_active = not (is_collapsed_closed or is_collapsed_open)
+
+        if is_collapsed_closed:
+            selectivity_score = 0.0
+            gate_status = "collapsed_closed"
+        elif is_collapsed_open:
+            selectivity_score = 0.0
+            gate_status = "collapsed_open"
+        else:
+            selectivity_score = 1.0 - fraction
+            gate_status = "active"
+
         return {
             "mean_slots_written_per_step": mean_slots,
-            "selectivity_score": 1.0 - fraction,
+            "selectivity_score": selectivity_score,
             "gate_entropy": entropy,
+            "gate_status": gate_status,
+            "is_active": is_active,
             "top_k_baseline_slots": float(self.write_top_k),
             "per_turn_gate_fraction": per_turn,
             "num_steps_recorded": len(self._steps),

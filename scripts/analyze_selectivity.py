@@ -385,16 +385,47 @@ def main():
             baseline_eval = evaluate_model(baseline_model, test_loader, device, b_analyser, num_batches=args.num_eval_batches)
         except Exception as e:
             print(f"  Warning: Could not load baseline checkpoint from {baseline_path}: {e}")
-            print(f"  Falling back to analytical top-K baseline (K={config.external.write_top_k}).")
             baseline_eval = None
     elif args.baseline_checkpoint:
         print(f"  Note: Baseline checkpoint not found at {args.baseline_checkpoint} (or on Drive).")
-        print(f"        Comparing against analytical top-K baseline (K={config.external.write_top_k}).")
+        baseline_eval = None
+
+    # If baseline is still None, perform an on-the-fly Top-K ablation using current model weights
+    if baseline_eval is None:
+        print(f"  Evaluating on-the-fly Top-K forced baseline (K={config.external.write_top_k})...")
+        try:
+            import dataclasses
+            b_ext = dataclasses.replace(config.external, learned_gate=False)
+            baseline_model = SequentialReasoningModel(
+                config=config.model,
+                vocab=vocab,
+                activity_config=config.activity,
+                resolution_config=config.resolution,
+                persistence_config=config.persistence,
+                external_config=b_ext,
+            ).to(device)
+            baseline_model.load_state_dict(model.state_dict(), strict=False)
+            baseline_model.eval()
+            b_analyser = SelectivityAnalyser(config.model.latent_slots, config.external.write_top_k)
+            baseline_eval = evaluate_model(baseline_model, test_loader, device, b_analyser, num_batches=args.num_eval_batches)
+            print(f"  On-the-fly Top-K baseline evaluated: Acc = {baseline_eval['acc']*100:.2f}%")
+        except Exception as e:
+            print(f"  Warning: On-the-fly baseline evaluation failed: {e}")
+            baseline_eval = None
 
     # 6. Exit Criterion Check
     k_baseline = float(config.external.write_top_k)
     slots_written = report["mean_slots_written_per_step"]
-    writes_fewer = slots_written < k_baseline
+    gate_entropy = report["gate_entropy"]
+    gate_status = report.get("gate_status", "active")
+
+    # Meaningful activity requirement:
+    # The gate must be functional (not dead/saturated closed or unconstrained open)
+    min_write_floor = 0.05
+    min_entropy_floor = 0.005
+    gate_functional = (slots_written >= min_write_floor) and (gate_entropy >= min_entropy_floor) and (gate_status == "active")
+
+    writes_fewer = (slots_written < k_baseline) and gate_functional
     acc_check = True
     if baseline_eval is not None:
         acc_check = learned_eval["acc"] >= (baseline_eval["acc"] - 0.02)  # within margin
@@ -406,12 +437,20 @@ def main():
     print("=" * 65)
     print(f"  Learned Mean Slots Written: {slots_written:.2f} / step")
     print(f"  Baseline Top-K Fixed Slots: {k_baseline:.2f} / step")
-    print(f"  Selective Writing Check   : {'PASS (writes fewer slots)' if writes_fewer else 'FAIL'}")
+    print(f"  Gate Entropy              : {gate_entropy:.4f} (min required: {min_entropy_floor})")
+    print(f"  Gate Status               : {gate_status.upper()}")
+    if not gate_functional:
+        print("  Selective Writing Check   : FAIL (Gate collapsed closed/zero-write saturation; cannot claim selectivity)")
+    elif writes_fewer:
+        print("  Selective Writing Check   : PASS (Writes fewer slots than baseline while functional)")
+    else:
+        print("  Selective Writing Check   : FAIL (Writes more slots than baseline)")
+
     if baseline_eval:
         print(f"  Learned Accuracy          : {learned_eval['acc']*100:.2f}%")
         print(f"  Baseline Accuracy         : {baseline_eval['acc']*100:.2f}%")
         print(f"  Accuracy Retention Check  : {'PASS' if acc_check else 'FAIL'}")
-    print(f"  Overall Exit Criterion    : {'PASSED' if exit_criterion_met else 'PENDING TRAINING'}")
+    print(f"  Overall Exit Criterion    : {'PASSED' if exit_criterion_met else 'FAILED / PENDING VALIDATION'}")
     print("=" * 65 + "\n")
 
     # 7. Save Artifacts & Reports
@@ -423,6 +462,7 @@ def main():
         "evaluation": learned_eval,
         "baseline_evaluation": baseline_eval,
         "exit_criterion_met": exit_criterion_met,
+        "gate_functional": gate_functional,
     }
     json_path = output_dir / "selectivity_report.json"
     with open(json_path, "w", encoding="utf-8") as f:

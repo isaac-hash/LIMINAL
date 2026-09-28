@@ -58,6 +58,8 @@ class ExternalConfig:
     gumbel_tau_end: float = 0.1             # Final Gumbel temperature (low = near-discrete)
     gumbel_anneal_epochs: int = 30          # Epochs over which tau is annealed from start to end
     write_sparsity_lambda: float = 0.01     # L1 coefficient on write gate to encourage selectivity
+    write_gate_bias_init: float = 0.0       # Initial bias of write gate MLP (0.0 = neutral, -1.0 = conservative)
+    write_sparsity_warmup_epochs: int = 5   # Epochs with lambda_write = 0 before sparsity penalty kicks in
 
 
 

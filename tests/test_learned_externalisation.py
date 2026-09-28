@@ -342,7 +342,10 @@ def test_selectivity_score_none_write():
     gate_none = torch.zeros(4, 8)  # no slots ever write
     analyser.update(gate_none, turn_index=0, step=0)
     report = analyser.summarise()
-    assert abs(report["selectivity_score"] - 1.0) < 1e-5  # 1 - 0.0 = 1
+    # A completely dead/closed gate does not exhibit selectivity; score is 0.0
+    assert abs(report["selectivity_score"]) < 1e-5
+    assert report["gate_status"] == "collapsed_closed"
+    assert report["is_active"] is False
 
 
 # ── 20. SelectivityAnalyser: per_turn_gate_fraction keys ─────────────────────

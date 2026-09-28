@@ -11,6 +11,7 @@ class LossComputer:
     def __init__(self, config: Config):
         self.config = config
         self.ce = nn.CrossEntropyLoss()
+        self.current_write_sparsity_lambda: float = config.external.write_sparsity_lambda
 
     def __call__(
         self,
@@ -84,7 +85,7 @@ class LossComputer:
             and info.get("write_gate_mean") is not None
         ):
             gate_mean = info["write_gate_mean"]
-            loss_write_sparse = self.config.external.write_sparsity_lambda * gate_mean
+            loss_write_sparse = self.current_write_sparsity_lambda * gate_mean
             total_loss = total_loss + loss_write_sparse
             breakdown["loss_write_sparse"] = loss_write_sparse.item()
             breakdown["write_gate_mean"] = gate_mean.item()

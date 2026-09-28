@@ -213,8 +213,9 @@ class LearnedWriteController(nn.Module):
             nn.ReLU(),
             nn.Linear(gate_hidden, 1),
         )
-        # Negative bias -> model starts conservative (writes few slots)
-        nn.init.constant_(self.gate_net[-1].bias, -1.0)
+        # Write gate bias initialization (default 0.0 allows balanced exploratory writes)
+        init_bias = getattr(config, "write_gate_bias_init", 0.0)
+        nn.init.constant_(self.gate_net[-1].bias, init_bias)
 
         # Type classifier (discrete, detached — same as Phase 5)
         type_head = nn.Linear(latent_dim, config.num_types)

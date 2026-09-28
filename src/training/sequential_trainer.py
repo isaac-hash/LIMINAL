@@ -61,6 +61,9 @@ class SequentialTrainer:
     def train(self) -> list[dict[str, Any]]:
         """Run full training loop across all epochs."""
         for epoch in range(self.config.training.epochs):
+            # Phase 7 warmup: update effective write sparsity lambda
+            self._maybe_update_write_sparsity_lambda(epoch)
+
             train_metrics = self._train_epoch(epoch)
 
             val_metrics = {}
@@ -247,6 +250,18 @@ class SequentialTrainer:
         progress = min(epoch / anneal_epochs, 1.0)
         tau = ext.gumbel_tau_start + progress * (ext.gumbel_tau_end - ext.gumbel_tau_start)
         write_ctrl.set_tau(tau)
+
+    def _maybe_update_write_sparsity_lambda(self, epoch: int) -> None:
+        """Warm up write sparsity lambda. Holds lambda=0 for warmup_epochs, then ramps."""
+        ext = self.config.external
+        if not (ext.enabled and ext.learned_gate):
+            return
+        warmup = getattr(ext, "write_sparsity_warmup_epochs", 0)
+        target_lambda = ext.write_sparsity_lambda
+        if warmup <= 0 or epoch >= warmup:
+            self.loss_fn.current_write_sparsity_lambda = target_lambda
+        else:
+            self.loss_fn.current_write_sparsity_lambda = 0.0
 
     def _maybe_save_checkpoints(self, epoch: int, val_metrics: dict[str, float]) -> None:
         """Save best.pt and last.pt checkpoints."""

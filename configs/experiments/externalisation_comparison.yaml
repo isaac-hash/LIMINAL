@@ -57,6 +57,8 @@ external:
   gumbel_tau_end: 0.1         # end near-hard (selective discrete decisions)
   gumbel_anneal_epochs: 30    # anneal over first 30 of 50 epochs
   write_sparsity_lambda: 0.01 # L1 penalty on mean write gate
+  write_gate_bias_init: 0.0   # neutral bias init to prevent premature gate saturation
+  write_sparsity_warmup_epochs: 10 # hold L1 penalty at 0 for first 10 epochs
 
 # === Persistence (ON) ===
 persistence:
