@@ -30,6 +30,15 @@ class ArithmeticGenerator:
                 num_test=self.config.num_test,
             )
             return gen.generate_dataset()
+        if self.config.task_family == "ext_sensitive_hard":
+            from src.data.ext_sensitive_hard import ExtSensitiveHardGenerator
+            gen = ExtSensitiveHardGenerator(
+                seed=self.seed,
+                num_train=self.config.num_train,
+                num_val=self.config.num_val,
+                num_test=self.config.num_test,
+            )
+            return gen.generate_dataset()
         splits = {
             "train": self._generate_split("train", self.config.num_train, seed_offset=0),
             "val": self._generate_split("val", self.config.num_val, seed_offset=100000),

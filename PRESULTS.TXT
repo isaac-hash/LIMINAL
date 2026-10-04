@@ -1,0 +1,363 @@
+PS C:\Users\HP\Desktop\LIMINAL> python scripts/train_sequential.py --config configs/experiments/externalisation_comparison.yaml
+Device: cpu
+Running on CPU
+
+--- Multi-Turn Sequential Training Configuration ---
+Model Type:      graph
+Latent Slots:    8
+Latent Dim:      32
+Reasoning Steps: 4
+Activity Gates:  ON (adaptive)
+Halt Gates:      ON (adaptive, T_max=16)
+Persistence:     ON (gated blend)
+Detach Turns:    True
+External WS:     ON (slots=16, top_k=3, read_heads=2, edge_adapt=True)
+Task Family:     ext_sensitive
+Sequence Turns:  5
+Ops Per Turn:    1
+Epochs:          50
+Batch Size:      8
+Checkpoint Dir:  results/externalisation_comparison
+
+Generating synthetic sequence dataset...
+Dataset generated: 3000 train sequences, 500 val sequences, 500 test sequences.
+Starting sequential training loop...
+[Checkpoint] Epoch 00: Saved new best model to results\externalisation_comparison\best.pt (acc: 79.04%)
+[Checkpoint] Epoch 01: Saved new best model to results\externalisation_comparison\best.pt (acc: 90.84%)
+[Checkpoint] Epoch 03: Saved new best model to results\externalisation_comparison\best.pt (acc: 91.16%)
+[Checkpoint] Epoch 04: Saved new best model to results\externalisation_comparison\best.pt (acc: 91.88%)
+[Checkpoint] Epoch 05: Saved new best model to results\externalisation_comparison\best.pt (acc: 93.40%)
+[Checkpoint] Epoch 06: Saved new best model to results\externalisation_comparison\best.pt (acc: 94.00%)
+[Checkpoint] Epoch 09: Saved new best model to results\externalisation_comparison\best.pt (acc: 95.36%)
+[Checkpoint] Epoch 33: Saved new best model to results\externalisation_comparison\best.pt (acc: 95.44%)
+[Checkpoint] Epoch 35: Saved new best model to results\externalisation_comparison\best.pt (acc: 96.56%)
+Sequential training finished.
+
+--- Final Multi-Turn Test Results ---
+Test Loss:     0.1331
+Test Accuracy: 96.28%
+  Turn 1 Accuracy: 99.80%
+  Turn 2 Accuracy: 99.40%
+  Turn 3 Accuracy: 96.80%
+  Turn 4 Accuracy: 92.00%
+  Turn 5 Accuracy: 93.40%
+
+PS C:\Users\HP\Desktop\LIMINAL> 
+PS C:\Users\HP\Desktop\LIMINAL> python scripts/analyze_selectivity.py --config configs/experiments/externalisation_comparison.yaml --checkpoint LIMINAL_results/externalisation_comparison/best.pt --output-dir results/phase7_eval --device cpu
+Matplotlib is building the font cache; this may take a moment.
+usage: analyze_selectivity.py [-h] [--config CONFIG] [--checkpoint CHECKPOINT]
+                              [--baseline-checkpoint BASELINE_CHECKPOINT]
+                              [--output-dir OUTPUT_DIR] [--drive-path DRIVE_PATH]
+                              [--num-eval-batches NUM_EVAL_BATCHES] [--seed SEED]
+analyze_selectivity.py: error: unrecognized arguments: --device cpu
+PS C:\Users\HP\Desktop\LIMINAL> 
+PS C:\Users\HP\Desktop\LIMINAL> python scripts/analyze_selectivity.py --config configs/experiments/externalisation_comparison.yaml --checkpoint LIMINAL_results/externalisation_comparison/best.pt --output-dir results/phase7_eval             
+Device: cpu
+Running on CPU
+
+=================================================================
+  Phase 7: Learned Externalisation Selectivity Analysis
+=================================================================
+  Config          : configs/experiments/externalisation_comparison.yaml
+  Checkpoint      : LIMINAL_results/externalisation_comparison/best.pt
+  Baseline Checkpt: None (analytical top-K)
+  Output Dir      : results/phase7_eval
+  Device          : cpu
+=================================================================
+
+Generating evaluation dataset...
+Test dataset: 500 sequences ready.
+Loading learned gate weights from LIMINAL_results\externalisation_comparison\best.pt...
+Evaluating learned gate model...
+
+─── Phase 7 Selectivity Analysis ───────────────────────
+  Latent slots (N)          : 8
+  Top-K baseline            : 3 slots/step
+  Learned mean slots/step   : 0.00
+  Selectivity score         : 0.000  (higher = more selective)
+  Gate entropy              : 0.0000  (lower = more confident)
+  Steps recorded            : 1635
+  Gate fraction by turn     :
+    Turn 0: 0.000  |                    |
+    Turn 1: 0.000  |                    |
+    Turn 2: 0.000  |                    |
+    Turn 3: 0.000  |                    |
+    Turn 4: 0.000  |                    |
+
+  Evaluating on-the-fly Top-K forced baseline (K=3)...
+  On-the-fly Top-K baseline evaluated: Acc = 95.84%
+
+    Turn 0: 0.000  |                    |
+    Turn 1: 0.000  |                    |
+    Turn 2: 0.000  |                    |
+    Turn 3: 0.000  |                    |
+    Turn 4: 0.000  |                    |
+
+  Evaluating on-the-fly Top-K forced baseline (K=3)...
+  On-the-fly Top-K baseline evaluated: Acc = 95.84%
+
+  On-the-fly Top-K baseline evaluated: Acc = 95.84%
+
+=================================================================
+  Exit Criterion Check (Phase 7)
+=================================================================
+  Learned Mean Slots Written: 0.00 / step
+  Baseline Top-K Fixed Slots: 3.00 / step
+  Gate Entropy              : 0.0000 (min required: 0.005)
+  Gate Status               : COLLAPSED_CLOSED
+  Selective Writing Check   : FAIL (Gate collapsed closed/zero-write saturation; cannot claim selectivity)
+  Learned Accuracy          : 97.44%
+  Baseline Accuracy         : 95.84%
+  Learned Mean Slots Written: 0.00 / step
+  Baseline Top-K Fixed Slots: 3.00 / step
+  Gate Entropy              : 0.0000 (min required: 0.005)
+  Gate Status               : COLLAPSED_CLOSED
+  Selective Writing Check   : FAIL (Gate collapsed closed/zero-write saturation; cannot claim selectivity)
+  Learned Accuracy          : 97.44%
+  Baseline Accuracy         : 95.84%
+  Gate Entropy              : 0.0000 (min required: 0.005)
+  Gate Status               : COLLAPSED_CLOSED
+  Selective Writing Check   : FAIL (Gate collapsed closed/zero-write saturation; cannot claim selectivity)
+  Learned Accuracy          : 97.44%
+  Baseline Accuracy         : 95.84%
+  Baseline Accuracy         : 95.84%
+  Accuracy Retention Check  : PASS
+  Overall Exit Criterion    : FAILED / PENDING VALIDATION
+=================================================================
+
+Saved selectivity report: results\phase7_eval\selectivity_report.json
+findfont: Failed to find font weight semibold, now using 700.
+Saved plot: results\phase7_eval\write_gate_per_turn.png
+Saved plot: results\phase7_eval\accuracy_comparison.png
+PS C:\Users\HP\Desktop\LIMINAL> python scripts/run_phase8a_benchmark.py --vector-ckpt results/vector_baseline/best.pt --static-ckpt results/static_graph/best.pt --phase4-ckpt LIMINAL_results/persistence_incremental/best.pt --phase7-ckpt LIMINAL_results/externalisation_comparison/best.pt --output-dir results/phase8a --device cpu
+  Device: cpu
+
+================================================================
+  Phase 8A: Four-Model Comparative Benchmark
+================================================================
+  Generating shared eval dataset (500 seqs × 5 turns, seed=999) …
+  Dataset ready: 500 sequences.
+
+  ── Model A: Vector Baseline
+     Checkpoint : results\vector_baseline\best.pt
+     Overall Acc : 85.20%
+     Per-Turn    : T1: 88.8%  |  T2: 98.2%  |  T3: 90.6%  |  T4: 78.4%  |  T5: 70.0%
+     Test Loss   : 2.3826
+     Params      : 498,530
+     Latency     : 5.20 ms/seq
+
+  ── Model B: Static Graph
+     Checkpoint : results\static_graph\best.pt
+     Overall Acc : 86.68%
+     Per-Turn    : T1: 73.0%  |  T2: 100.0%  |  T3: 93.4%  |  T4: 85.2%  |  T5: 81.8%
+     Test Loss   : 1.5344
+     Params      : 19,266
+     Latency     : 4.01 ms/seq
+
+  ── Model C: Persistent Graph (Phase 4)
+     Checkpoint : LIMINAL_results\persistence_incremental\best.pt
+     Overall Acc : 89.72%
+     Per-Turn    : T1: 99.0%  |  T2: 86.6%  |  T3: 86.6%  |  T4: 89.4%  |  T5: 87.0%
+     Test Loss   : 0.9783
+     Params      : 23,557
+     Latency     : 7.16 ms/seq
+     Halt Steps  : 0.00
+     Active Slots: 0.000
+
+  ── Model D: Full LIMINAL (Phase 7)
+     Checkpoint : LIMINAL_results\externalisation_comparison\best.pt
+     Overall Acc : 38.64%
+     Per-Turn    : T1: 34.8%  |  T2: 37.0%  |  T3: 39.2%  |  T4: 39.2%  |  T5: 43.0%
+     Test Loss   : 12.6041
+     Params      : 34,158
+     Latency     : 13.37 ms/seq
+     Halt Steps  : 0.00
+     Active Slots: 0.000
+     Ext Writes  : 0.000 slots/step
+
+================================================================
+  Exporting results …
+================================================================
+  JSON  → results\phase8a\phase8a_metrics.json
+  CSV   → results\phase8a\phase8a_metrics.csv
+  MD    → results\phase8a\phase8a_comparison_table.md
+  Plot  → results\phase8a\turn_accuracy_decay.png
+  Plot  → results\phase8a\accuracy_vs_compute.png
+
+================================================================
+  ✓ Phase 8A Complete — Summary
+================================================================
+  Model                             Accuracy      Loss      Params    ms/seq
+  ------------------------------------------------------------------------
+  Vector Baseline                     85.20%    2.3826     498,530     5.20ms
+  Static Graph                        86.68%    1.5344      19,266     4.01ms
+  Persistent Graph (Phase 4)          89.72%    0.9783      23,557     7.16ms
+  Full LIMINAL (Phase 7)              38.64%   12.6041      34,158    13.37ms
+
+  All outputs saved to: C:\Users\HP\Desktop\LIMINAL\results\phase8a
+PS C:\Users\HP\Desktop\LIMINAL> 
+PS C:\Users\HP\Desktop\LIMINAL> python scripts/train_sequential.py --config configs/experiments/capacity_starvation.yaml
+Device: cpu
+Running on CPU
+
+--- Multi-Turn Sequential Training Configuration ---
+Model Type:      graph
+Latent Slots:    3
+Latent Dim:      32
+Reasoning Steps: 4
+Activity Gates:  ON (adaptive)
+Halt Gates:      ON (adaptive, T_max=16)
+Persistence:     ON (gated blend)
+Detach Turns:    True
+External WS:     ON (slots=16, top_k=3, read_heads=2, edge_adapt=True)
+Task Family:     ext_sensitive_hard
+Sequence Turns:  7
+Ops Per Turn:    1
+Epochs:          60
+Batch Size:      8
+Checkpoint Dir:  results/capacity_starvation
+
+Generating synthetic sequence dataset...
+Dataset generated: 3000 train sequences, 500 val sequences, 500 test sequences.
+Starting sequential training loop...
+[Checkpoint] Epoch 00: Saved new best model to results\capacity_starvation\best.pt (acc: 76.77%)
+[Checkpoint] Epoch 01: Saved new best model to results\capacity_starvation\best.pt (acc: 84.09%)
+[Checkpoint] Epoch 02: Saved new best model to results\capacity_starvation\best.pt (acc: 87.49%)
+[Checkpoint] Epoch 04: Saved new best model to results\capacity_starvation\best.pt (acc: 88.40%)
+[Checkpoint] Epoch 06: Saved new best model to results\capacity_starvation\best.pt (acc: 88.40%)
+[Checkpoint] Epoch 07: Saved new best model to results\capacity_starvation\best.pt (acc: 89.43%)
+[Checkpoint] Epoch 09: Saved new best model to results\capacity_starvation\best.pt (acc: 89.89%)
+[Checkpoint] Epoch 10: Saved new best model to results\capacity_starvation\best.pt (acc: 90.23%)
+[Checkpoint] Epoch 12: Saved new best model to results\capacity_starvation\best.pt (acc: 91.03%)
+[Checkpoint] Epoch 13: Saved new best model to results\capacity_starvation\best.pt (acc: 91.29%)
+[Checkpoint] Epoch 18: Saved new best model to results\capacity_starvation\best.pt (acc: 92.09%)
+[Checkpoint] Epoch 23: Saved new best model to results\capacity_starvation\best.pt (acc: 92.29%)
+[Checkpoint] Epoch 27: Saved new best model to results\capacity_starvation\best.pt (acc: 92.54%)
+[Checkpoint] Epoch 30: Saved new best model to results\capacity_starvation\best.pt (acc: 92.63%)
+[Checkpoint] Epoch 33: Saved new best model to results\capacity_starvation\best.pt (acc: 92.83%)
+[Checkpoint] Epoch 37: Saved new best model to results\capacity_starvation\best.pt (acc: 92.86%)
+[Checkpoint] Epoch 49: Saved new best model to results\capacity_starvation\best.pt (acc: 93.11%)
+Sequential training finished.
+
+--- Final Multi-Turn Test Results ---
+Test Loss:     0.1856
+Test Accuracy: 92.74%
+  Turn 1 Accuracy: 100.00%
+  Turn 2 Accuracy: 98.00%
+  Turn 3 Accuracy: 94.20%
+  Turn 4 Accuracy: 89.40%
+  Turn 5 Accuracy: 78.60%
+  Turn 6 Accuracy: 92.00%
+  Turn 7 Accuracy: 97.00%
+
+PS C:\Users\HP\Desktop\LIMINAL> 
+PS C:\Users\HP\Desktop\LIMINAL> python scripts/analyze_selectivity.py --config configs/experiments/externalisation_comparison.yaml --checkpoint LIMINAL_results/externalisation_comparison/best.pt --output-dir results/phase7_eval                                                             
+Device: cpu
+Running on CPU
+
+=================================================================
+  Phase 7: Learned Externalisation Selectivity Analysis
+=================================================================
+  Config          : configs/experiments/externalisation_comparison.yaml
+  Checkpoint      : LIMINAL_results/externalisation_comparison/best.pt
+  Baseline Checkpt: None (analytical top-K)
+  Output Dir      : results/phase7_eval
+  Device          : cpu
+=================================================================
+
+Generating evaluation dataset...
+Test dataset: 500 sequences ready.
+Loading learned gate weights from LIMINAL_results\externalisation_comparison\best.pt...
+Evaluating learned gate model...
+
+─── Phase 7 Selectivity Analysis ───────────────────────
+  Latent slots (N)          : 8
+  Top-K baseline            : 3 slots/step
+  Learned mean slots/step   : 0.00
+  Selectivity score         : 0.000  (higher = more selective)
+  Gate entropy              : 0.0000  (lower = more confident)
+  Steps recorded            : 1635
+  Gate fraction by turn     :
+    Turn 0: 0.000  |                    |
+    Turn 1: 0.000  |                    |
+    Turn 2: 0.000  |                    |
+    Turn 3: 0.000  |                    |
+    Turn 4: 0.000  |                    |
+
+  Evaluating on-the-fly Top-K forced baseline (K=3)...
+  On-the-fly Top-K baseline evaluated: Acc = 95.84%
+
+=================================================================
+  Exit Criterion Check (Phase 7)
+=================================================================
+  Learned Mean Slots Written: 0.00 / step
+  Baseline Top-K Fixed Slots: 3.00 / step
+  Gate Entropy              : 0.0000 (min required: 0.005)
+  Gate Status               : COLLAPSED_CLOSED
+  Selective Writing Check   : FAIL (Gate collapsed closed/zero-write saturation; cannot claim selectivity)
+  Learned Accuracy          : 97.44%
+  Baseline Accuracy         : 95.84%
+  Accuracy Retention Check  : PASS
+  Overall Exit Criterion    : FAILED / PENDING VALIDATION
+=================================================================
+
+Saved selectivity report: results\phase7_eval\selectivity_report.json
+findfont: Failed to find font weight semibold, now using 700.
+Saved plot: results\phase7_eval\write_gate_per_turn.png
+Saved plot: results\phase7_eval\accuracy_comparison.png
+PS C:\Users\HP\Desktop\LIMINAL> python scripts/analyze_selectivity.py --config configs/experiments/capacity_starvation.yaml --checkpoint results/capacity_starvation/best.pt --output-dir results/phase7_eval/capacity_starvation
+Device: cpu
+Running on CPU
+
+=================================================================
+  Phase 7: Learned Externalisation Selectivity Analysis
+=================================================================
+  Config          : configs/experiments/capacity_starvation.yaml
+  Checkpoint      : results/capacity_starvation/best.pt
+  Baseline Checkpt: None (analytical top-K)
+  Output Dir      : results/phase7_eval/capacity_starvation
+  Device          : cpu
+=================================================================
+
+Generating evaluation dataset...
+Test dataset: 500 sequences ready.
+Loading learned gate weights from results\capacity_starvation\best.pt...
+Evaluating learned gate model...
+
+─── Phase 7 Selectivity Analysis ───────────────────────
+  Latent slots (N)          : 3
+  Top-K baseline            : 3 slots/step
+  Learned mean slots/step   : 2.83
+  Selectivity score         : 0.055  (higher = more selective)
+  Gate entropy              : 0.1042  (lower = more confident)
+  Steps recorded            : 1926
+  Gate fraction by turn     :
+    Turn 0: 0.830  |################    |
+    Turn 1: 0.959  |################### |
+    Turn 2: 0.994  |################### |
+    Turn 3: 1.000  |####################|
+    Turn 4: 1.000  |####################|
+    Turn 5: 1.000  |####################|
+    Turn 6: 1.000  |####################|
+
+  Evaluating on-the-fly Top-K forced baseline (K=3)...
+  On-the-fly Top-K baseline evaluated: Acc = 83.86%
+
+=================================================================
+  Exit Criterion Check (Phase 7)
+=================================================================
+  Learned Mean Slots Written: 2.83 / step
+  Baseline Top-K Fixed Slots: 3.00 / step
+  Gate Entropy              : 0.1042 (min required: 0.005)
+  Gate Status               : ACTIVE
+  Selective Writing Check   : PASS (Writes fewer slots than baseline while functional)
+  Learned Accuracy          : 92.51%
+  Baseline Accuracy         : 83.86%
+  Accuracy Retention Check  : PASS
+  Overall Exit Criterion    : PASSED
+=================================================================
+
+Saved selectivity report: results\phase7_eval\capacity_starvation\selectivity_report.json       
+findfont: Failed to find font weight semibold, now using 700.
+Saved plot: results\phase7_eval\capacity_starvation\write_gate_per_turn.png
+Saved plot: results\phase7_eval\capacity_starvation\accuracy_comparison.png

@@ -183,11 +183,14 @@ def generate_plots(
 
         plt.figure(figsize=(7, 4.5), dpi=150)
         bars = plt.bar(turns, fractions, color="#4C9BE8", edgecolor="#1F4E79", alpha=0.85, width=0.5)
+        n_slots = learned_report.get("num_latent_slots", 8)
+        top_k = learned_report["top_k_baseline_slots"]
+        baseline_frac = top_k / max(1, n_slots)
         plt.axhline(
-            y=learned_report["top_k_baseline_slots"] / 8.0,
+            y=baseline_frac,
             color="#E84C4C",
             linestyle="--",
-            label=f"Top-{int(learned_report['top_k_baseline_slots'])} Heuristic Baseline ({learned_report['top_k_baseline_slots']/8.0:.2%})",
+            label=f"Top-{int(top_k)} Heuristic Baseline ({baseline_frac:.2%} of {n_slots} slots)",
         )
         plt.title("Learned Write Gate Fraction Across Sequence Turns", fontsize=13, fontweight="bold", pad=12)
         plt.xlabel("Turn Index", fontsize=11)

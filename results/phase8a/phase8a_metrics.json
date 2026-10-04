@@ -1,0 +1,130 @@
+[
+  {
+    "model_id": "A",
+    "label": "Vector Baseline",
+    "overall_accuracy": 0.852,
+    "per_turn_accuracy": [
+      0.888,
+      0.982,
+      0.906,
+      0.784,
+      0.7
+    ],
+    "per_turn_loss": [
+      1.688849750518799,
+      0.18673857769394586,
+      1.4810397987365722,
+      3.5394551544189454,
+      5.016909957885742
+    ],
+    "mean_loss": 2.3825986478508008,
+    "mean_halt_steps": 0.0,
+    "mean_active_slots": 0.0,
+    "mean_ext_writes": 0.0,
+    "param_count": {
+      "total": 498530,
+      "trainable": 498530
+    },
+    "has_persistence": false,
+    "has_external": false,
+    "epoch": 47,
+    "ckpt_path": "results\\vector_baseline\\best.pt",
+    "latency_ms_per_seq": 5.197596874495503
+  },
+  {
+    "model_id": "B",
+    "label": "Static Graph",
+    "overall_accuracy": 0.8668,
+    "per_turn_accuracy": [
+      0.73,
+      1.0,
+      0.934,
+      0.852,
+      0.818
+    ],
+    "per_turn_loss": [
+      2.3288943881988526,
+      0.00012981577403843402,
+      0.7523179947725439,
+      1.965542064666748,
+      2.6249430389404296
+    ],
+    "mean_loss": 1.5343654604705226,
+    "mean_halt_steps": 0.0,
+    "mean_active_slots": 0.0,
+    "mean_ext_writes": 0.0,
+    "param_count": {
+      "total": 19266,
+      "trainable": 19266
+    },
+    "has_persistence": false,
+    "has_external": false,
+    "epoch": 49,
+    "ckpt_path": "results\\static_graph\\best.pt",
+    "latency_ms_per_seq": 4.011693750726408
+  },
+  {
+    "model_id": "C",
+    "label": "Persistent Graph (Phase 4)",
+    "overall_accuracy": 0.8972,
+    "per_turn_accuracy": [
+      0.99,
+      0.866,
+      0.866,
+      0.894,
+      0.87
+    ],
+    "per_turn_loss": [
+      0.017320102171739564,
+      1.569280515730381,
+      1.3800524444580078,
+      0.8403494083881378,
+      1.0844640216827393
+    ],
+    "mean_loss": 0.9782932984862011,
+    "mean_halt_steps": 0.0,
+    "mean_active_slots": 0.0,
+    "mean_ext_writes": 0.0,
+    "param_count": {
+      "total": 23557,
+      "trainable": 23557
+    },
+    "has_persistence": true,
+    "has_external": false,
+    "epoch": 43,
+    "ckpt_path": "LIMINAL_results\\persistence_incremental\\best.pt",
+    "latency_ms_per_seq": 7.161562500186847
+  },
+  {
+    "model_id": "D",
+    "label": "Full LIMINAL (Phase 7)",
+    "overall_accuracy": 0.3864,
+    "per_turn_accuracy": [
+      0.348,
+      0.37,
+      0.392,
+      0.392,
+      0.43
+    ],
+    "per_turn_loss": [
+      15.840325805664062,
+      12.747266357421875,
+      11.768268005371095,
+      11.751898315429688,
+      10.91293344116211
+    ],
+    "mean_loss": 12.604138385009765,
+    "mean_halt_steps": 0.0,
+    "mean_active_slots": 0.0,
+    "mean_ext_writes": 0.0,
+    "param_count": {
+      "total": 34158,
+      "trainable": 34158
+    },
+    "has_persistence": true,
+    "has_external": true,
+    "epoch": 47,
+    "ckpt_path": "LIMINAL_results\\externalisation_comparison\\best.pt",
+    "latency_ms_per_seq": 13.365134374907939
+  }
+]

@@ -411,6 +411,6 @@ def test_resolve_checkpoint_path_drive_fallback(tmp_path):
     drive_ckpt = drive_dir / "best.pt"
     drive_ckpt.touch()
     # Path relative to nonexistent local path should resolve to Drive/best.pt
-    resolved = resolve_checkpoint_path("results/externalisation_comparison/best.pt", drive_path=drive_dir)
+    resolved = resolve_checkpoint_path("results/nonexistent_exp_fallback_test/best.pt", drive_path=drive_dir)
     assert resolved == drive_ckpt
 

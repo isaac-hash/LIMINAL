@@ -165,6 +165,7 @@ class SelectivityAnalyser:
             "gate_entropy": entropy,
             "gate_status": gate_status,
             "is_active": is_active,
+            "num_latent_slots": self.N,
             "top_k_baseline_slots": float(self.write_top_k),
             "per_turn_gate_fraction": per_turn,
             "num_steps_recorded": len(self._steps),

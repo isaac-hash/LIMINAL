@@ -1,0 +1,5 @@
+model_id,label,overall_accuracy,mean_loss,mean_halt_steps,mean_active_slots,mean_ext_writes,latency_ms_per_seq,params_total,params_trainable,has_persistence,has_external,turn_1_acc,turn_2_acc,turn_3_acc,turn_4_acc,turn_5_acc
+A,Vector Baseline,0.852000,2.382599,0.0000,0.0000,0.0000,5.1976,498530,498530,False,False,0.888000,0.982000,0.906000,0.784000,0.700000
+B,Static Graph,0.866800,1.534365,0.0000,0.0000,0.0000,4.0117,19266,19266,False,False,0.730000,1.000000,0.934000,0.852000,0.818000
+C,Persistent Graph (Phase 4),0.897200,0.978293,0.0000,0.0000,0.0000,7.1616,23557,23557,True,False,0.990000,0.866000,0.866000,0.894000,0.870000
+D,Full LIMINAL (Phase 7),0.386400,12.604138,0.0000,0.0000,0.0000,13.3651,34158,34158,True,True,0.348000,0.370000,0.392000,0.392000,0.430000
