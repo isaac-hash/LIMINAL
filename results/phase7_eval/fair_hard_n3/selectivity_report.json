@@ -1,0 +1,49 @@
+{
+  "selectivity": {
+    "mean_slots_written_per_step": 0.01880891950688905,
+    "selectivity_score": 0.0,
+    "gate_entropy": 0.0038438214004991775,
+    "gate_status": "collapsed_closed",
+    "is_active": false,
+    "num_latent_slots": 3,
+    "top_k_baseline_slots": 3.0,
+    "per_turn_gate_fraction": {
+      "0": 0.017400690846286704,
+      "1": 0.0,
+      "2": 0.0019157088122605363,
+      "3": 0.0,
+      "4": 0.0,
+      "5": 0.0,
+      "6": 0.0
+    },
+    "num_steps_recorded": 2758
+  },
+  "evaluation": {
+    "acc": 0.9225714285714286,
+    "total_samples": 3500,
+    "per_turn_acc": {
+      "turn_1": 1.0,
+      "turn_2": 0.992,
+      "turn_3": 0.918,
+      "turn_4": 0.9,
+      "turn_5": 0.856,
+      "turn_6": 0.836,
+      "turn_7": 0.956
+    }
+  },
+  "baseline_evaluation": {
+    "acc": 0.8345714285714285,
+    "total_samples": 3500,
+    "per_turn_acc": {
+      "turn_1": 0.988,
+      "turn_2": 0.92,
+      "turn_3": 0.892,
+      "turn_4": 0.62,
+      "turn_5": 0.742,
+      "turn_6": 0.726,
+      "turn_7": 0.954
+    }
+  },
+  "exit_criterion_met": false,
+  "gate_functional": false
+}
