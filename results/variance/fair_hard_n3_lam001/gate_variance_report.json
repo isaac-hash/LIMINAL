@@ -1,0 +1,79 @@
+{
+  "config": "configs/experiments/fair_hard_n3_lam001.yaml",
+  "checkpoint": "results/fair_hard_n3_lam001/best.pt",
+  "latent_slots": 3,
+  "write_sparsity_lambda": 0.001,
+  "mean_within_turn_std": 0.193,
+  "per_turn": {
+    "0": {
+      "turn": 0,
+      "n_examples": 500,
+      "mean_gate_frac": 1.0,
+      "std_gate_frac": 0.0,
+      "cv_gate_frac": 0.0,
+      "slot_fire_std": 0.0,
+      "spearman_r_entity_count": 1.0,
+      "spearman_r_turns_remaining": 1.0
+    },
+    "1": {
+      "turn": 1,
+      "n_examples": 500,
+      "mean_gate_frac": 0.9727,
+      "std_gate_frac": 0.1226,
+      "cv_gate_frac": 0.126,
+      "slot_fire_std": 0.0176,
+      "spearman_r_entity_count": 0.5246,
+      "spearman_r_turns_remaining": 0.5246
+    },
+    "2": {
+      "turn": 2,
+      "n_examples": 500,
+      "mean_gate_frac": 0.6827,
+      "std_gate_frac": 0.313,
+      "cv_gate_frac": 0.4585,
+      "slot_fire_std": 0.1962,
+      "spearman_r_entity_count": 0.0101,
+      "spearman_r_turns_remaining": 0.0101
+    },
+    "3": {
+      "turn": 3,
+      "n_examples": 500,
+      "mean_gate_frac": 0.5187,
+      "std_gate_frac": 0.1709,
+      "cv_gate_frac": 0.3295,
+      "slot_fire_std": 0.4055,
+      "spearman_r_entity_count": 0.0151,
+      "spearman_r_turns_remaining": 0.0151
+    },
+    "4": {
+      "turn": 4,
+      "n_examples": 500,
+      "mean_gate_frac": 0.756,
+      "std_gate_frac": 0.2367,
+      "cv_gate_frac": 0.3131,
+      "slot_fire_std": 0.2164,
+      "spearman_r_entity_count": 0.0423,
+      "spearman_r_turns_remaining": 0.0423
+    },
+    "5": {
+      "turn": 5,
+      "n_examples": 500,
+      "mean_gate_frac": 0.334,
+      "std_gate_frac": 0.177,
+      "cv_gate_frac": 0.53,
+      "slot_fire_std": 0.3863,
+      "spearman_r_entity_count": 0.3951,
+      "spearman_r_turns_remaining": 0.3951
+    },
+    "6": {
+      "turn": 6,
+      "n_examples": 500,
+      "mean_gate_frac": 0.3033,
+      "std_gate_frac": 0.331,
+      "cv_gate_frac": 1.0911,
+      "slot_fire_std": 0.2051,
+      "spearman_r_entity_count": 0.0258,
+      "spearman_r_turns_remaining": 0.0258
+    }
+  }
+}

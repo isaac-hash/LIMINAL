@@ -1,0 +1,49 @@
+{
+  "config": "configs/experiments/fair_hard_n3_lam001.yaml",
+  "checkpoint": "results/fair_hard_n3_lam001/best.pt",
+  "conditions": [
+    {
+      "label": "NORMAL (learned gate)",
+      "overall_acc": 0.9385714285714286,
+      "per_turn_acc": {
+        "turn_1": 1.0,
+        "turn_2": 0.986,
+        "turn_3": 0.924,
+        "turn_4": 0.902,
+        "turn_5": 0.874,
+        "turn_6": 0.91,
+        "turn_7": 0.974
+      }
+    },
+    {
+      "label": "ZERO_WRITE (gate forced closed)",
+      "overall_acc": 0.7297142857142858,
+      "per_turn_acc": {
+        "turn_1": 0.824,
+        "turn_2": 0.802,
+        "turn_3": 0.528,
+        "turn_4": 0.674,
+        "turn_5": 0.622,
+        "turn_6": 0.718,
+        "turn_7": 0.94
+      }
+    },
+    {
+      "label": "CORRUPT (records zeroed post-write)",
+      "overall_acc": 0.7328571428571429,
+      "per_turn_acc": {
+        "turn_1": 0.808,
+        "turn_2": 0.79,
+        "turn_3": 0.548,
+        "turn_4": 0.672,
+        "turn_5": 0.654,
+        "turn_6": 0.718,
+        "turn_7": 0.94
+      }
+    }
+  ],
+  "delta_zero_write_pp": -20.886,
+  "delta_corrupt_pp": -20.571,
+  "verdict_zero_write": "Writes are causally necessary (delta = -20.89pp)",
+  "verdict_corrupt": "Record CONTENT is the causally active component (matches zero-write delta)"
+}

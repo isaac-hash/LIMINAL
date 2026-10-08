@@ -1,0 +1,49 @@
+{
+  "selectivity": {
+    "mean_slots_written_per_step": 1.3746796045404615,
+    "selectivity_score": 0.8281650494324423,
+    "gate_entropy": 0.160087159177047,
+    "gate_status": "active",
+    "is_active": true,
+    "num_latent_slots": 8,
+    "top_k_baseline_slots": 3.0,
+    "per_turn_gate_fraction": {
+      "0": 0.22488839285714285,
+      "1": 0.20092429577464788,
+      "2": 0.153875,
+      "3": 0.09755608974358974,
+      "4": 0.18252487562189054,
+      "5": 0.10709397810218978,
+      "6": 0.04748498498498498
+    },
+    "num_steps_recorded": 2731
+  },
+  "evaluation": {
+    "acc": 0.9434285714285714,
+    "total_samples": 3500,
+    "per_turn_acc": {
+      "turn_1": 1.0,
+      "turn_2": 0.988,
+      "turn_3": 0.978,
+      "turn_4": 0.928,
+      "turn_5": 0.878,
+      "turn_6": 0.868,
+      "turn_7": 0.964
+    }
+  },
+  "baseline_evaluation": {
+    "acc": 0.7094285714285714,
+    "total_samples": 3500,
+    "per_turn_acc": {
+      "turn_1": 1.0,
+      "turn_2": 0.68,
+      "turn_3": 0.522,
+      "turn_4": 0.56,
+      "turn_5": 0.748,
+      "turn_6": 0.7,
+      "turn_7": 0.756
+    }
+  },
+  "exit_criterion_met": true,
+  "gate_functional": true
+}

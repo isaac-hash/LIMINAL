@@ -317,8 +317,12 @@ class LearnedWriteController(nn.Module):
         workspace.wrote_this_pass = new_wrote_this_pass
 
         info: dict = {
-            "write_gate": gate_soft,                   # [B, N] differentiable
-            "write_gate_mean": gate_soft.mean(),       # scalar, for sparsity loss
-            "write_gate_hard": gate_hard,              # [B, N] for logging
+            "write_gate": gate_soft,                            # [B, N] differentiable
+            # Absolute-slot penalty: sum over N slots per example, mean over batch.
+            # gate_soft.mean() would divide by B*N, giving N=8 a (8/3)x cost discount
+            # vs N=3 at the same lambda — an artefact. This form gives equal per-slot
+            # cost for any N so N comparisons are not confounded by capacity.
+            "write_gate_mean": gate_soft.sum(dim=-1).mean(),   # scalar, for sparsity loss
+            "write_gate_hard": gate_hard,                       # [B, N] for logging
         }
         return workspace, info

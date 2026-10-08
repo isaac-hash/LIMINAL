@@ -1,0 +1,30 @@
+# P8-E: N=3, lambda=0.000333 (matched per-slot cost after normalization fix)
+# Equivalent effective per-slot penalty to old N=3 lambda=0.001
+seed: 42
+training:
+  epochs: 60
+  batch_size: 8
+  lr: 3.0e-4
+  checkpoint_dir: results/p8e_matched_n3
+model:
+  type: graph
+  latent_slots: 3
+  latent_dim: 32
+  reasoning_steps: 4
+data:
+  task_family: ext_sensitive_hard
+  sequence_turns: 7
+  ops_per_turn: 1
+external:
+  enabled: true
+  learned_gate: true
+  num_slots: 16
+  write_top_k: 3
+  read_heads: 2
+  edge_adaptation: true
+  write_sparsity_lambda: 0.000333
+  write_sparsity_warmup_epochs: 5
+  write_gate_bias_init: 0.0
+  gumbel_tau_start: 1.0
+  gumbel_tau_end: 0.1
+  gumbel_anneal_epochs: 30
