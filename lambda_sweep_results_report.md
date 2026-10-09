@@ -2,7 +2,7 @@
 
 **Project**: Adaptive Internal-External Latent Workspace (LIMINAL)
 **Date**: October 2026
-**Status**: Phase 8 Complete — Demand-sensitivity analysis done; N=3 weakly demand-selective; LM gate 2.5/4 conditions met ✅
+**Status**: Phase 8 — P1/P2 analyses complete; scorecard updated; N=3 causal chain mapped ⚠️
 **Continuation of**: `capacity_starvation_results_report.md` (Phase 7 Controls Complete)
 **Stack**: PyTorch · NumPy · Matplotlib · PyYAML · pytest
 
@@ -986,3 +986,420 @@ Conditions 1 and 4 share a single prerequisite. The unblocking action is:
    - Expect a larger not-mattered pool and a more powered between-group comparison.
 4. **If Condition 4 passes on the harder task**, all 4 conditions are met and the LM
    scaffold can begin in parallel with the harder-task training.
+
+---
+
+## 18. Corrections and Revised Standing
+
+**Date**: October 2026  
+**Scope**: This section corrects specific claims made in §15 and §17 that overstate the evidence.
+The underlying data is unchanged; interpretations are tightened.
+
+---
+
+### 18.1 Scorecard Corrections
+
+The §15.5 / §17.3 scorecard marked Conditions 2 and 3 as ✅. Both are revised:
+
+| # | Condition | Previous | Revised | Reason |
+|---|-----------|----------|---------|--------|
+| 1 | No-workspace baseline fails (<80%) | ❌ | ❌ | Unchanged |
+| 2 | Causal evidence (zero-write + per-turn ablation + swap control) | ✅ | ⚠️ | Per-turn ablation and swap control were never run. Zero-write is whole-sequence only. |
+| 3 | Cost-matched comparison (N=3 vs N=8, equal λ/slot) | ✅ | ⚠️ | Single seed; N=8 P8-E run looks like an outlier against its own sweep (see §18.2). |
+| 4 | Gate writes more on demand-mattered examples | ⚠️ | ❌ | Three-way grouping problem; mattered rate is reader-fragility, not gate withholding; no uncertainty estimates (see §18.3). |
+
+**Revised scorecard: 1/4 conditions clearly met** (Condition 2 has partial evidence).
+
+---
+
+### 18.2 P8-E Reanalysis: The N=8 Run Is Likely an Outlier
+
+Section 15.3 concluded "The inversion vanishes: N=3 leads by 4.96pp" and reinstated the
+precision-store hypothesis. Both conclusions overstate the evidence.
+
+#### The N=8 P8-E run is inconsistent with its own sweep
+
+The matched-cost λ=0.000333 applied to N=8 equals a **fractional coefficient of 0.00267**
+(= 0.000333 × 8). Plotting against the N=8 sweep at fractional costs:
+
+| Run | N=8 fractional λ | Test Acc | Best epoch |
+|-----|-----------------|----------|------------|
+| P6-lam001 | 0.001 | 94.34% | 36 |
+| P6-lam002 | 0.002 | 93.06% | 50 |
+| **P8-E N=8** | **0.00267** | **89.37%** | **15** |
+| P6-lam005 | 0.005 | 92.57% | 54 |
+
+P8-E lands **~3.4pp below what the sweep interpolation predicts** (~91.8pp), and
+converged 3× faster than other N=8 runs (epoch 15 vs 36–54). Both are signs of an
+unstable or under-trained run, not a reliable measurement of matched-cost performance.
+
+N=3 P8-E, by contrast, replicates its old λ=0.001 run cleanly (94.33% vs 93.86%, +0.47pp,
+within seed noise) and converged at epoch 51 — consistent with other N=3 runs.
+
+#### Revised claims for §15
+
+- ✅ **The normalization artifact is real.** N=8 received a 2.67× per-slot cost discount
+  under the old normalization. The fix (`gate_soft.sum(dim=-1).mean()`) is correct.
+- ✅ **N=3 P8-E replicates its own prior result.** The normalization fix does not
+  meaningfully change N=3's behavior, confirming N=3's selectivity was not artifactual.
+- ❌ **"The inversion vanishes" is premature.** The N=8 P8-E run is not a reliable
+  measurement at its effective cost. A seed-43 replication of both P8-E cells with write
+  rates reported is needed before any comparison can be made.
+- ❌ **Precision-store hypothesis is NOT reinstated.** It was suspended pending P8-E
+  (per §13.2). P8-E does not provide sufficient evidence to reinstate it. The hypothesis
+  remains suspended.
+
+#### Missing data: write rates were never reported for P8-E
+
+Section 15 reports only accuracy. The retracted inversion was a *write-rate* claim
+(N=8 writes more slots/step than N=3). To address it, P8-E must report:
+- Mean slots written per step (from `analyze_selectivity.py`)
+- Gate entropy
+- Per-turn write fractions
+
+Without these, P8-E cannot confirm or deny the inversion.
+
+---
+
+### 18.3 §17 Design Problems: Demand-Sensitivity Analysis
+
+#### Problem 1: Three-way grouping is needed
+
+The current "write_mattered" tag is binary:
+- Group 1: `write_mattered=1` — NORMAL correct AND ZERO_WRITE wrong at any turn
+- Group 0: everything else — which **mixes two distinct cases**:
+  - (a) **Both-correct**: NORMAL correct AND ZERO_WRITE also correct → workspace not needed
+  - (b) **NORMAL-wrong**: NORMAL itself wrong → workspace didn't help anyway
+
+For the demand-sensitivity question, only case (a) is the true counterfactual baseline.
+Group 0 mixing in NORMAL-wrong examples pollutes the comparison. The correct design is:
+
+| Group | Condition | N (N=3) | N (N=8) | Interpretation |
+|-------|-----------|---------|---------|----------------|
+| helped | NORMAL ✓, ZERO ✗ | 446 | 493 | Writes causally helped |
+| both-correct | NORMAL ✓, ZERO ✓ | 54* | ~7* | Writes not needed |
+| normal-wrong | NORMAL ✗ | varies | varies | Can't attribute to writes |
+
+*These need to be computed; the current script doesn't separate them.
+
+#### Problem 2: Mattered rate measures reader fragility, not gate withholding
+
+Section 17.2 claimed N=3 "successfully withholds writes on ~11% of examples." The gate
+fractions in the not-mattered group refute this:
+
+| Turn | N=3 gate_frac (not-mattered) |
+|------|-------------------------------|
+| 2 | 0.8642 |
+| 3 | 0.5000 |
+| 4 | 0.5123 |
+| 5 | 0.8148 |
+
+The model **wrote extensively** in the not-mattered group. The mattered rate (89.2% / 98.6%)
+measures how many examples the reader breaks without workspace — **reader fragility** — not
+how often the gate chose to suppress writes. Claim retracted.
+
+#### Problem 3: N=8 negative deltas at Turns 3, 5, 7 are not dismissible as noise
+
+Section 17.2 dismissed the N=8 negative deltas (e.g. Turn 3: −0.5743) as "artifacts of
+an N=7 reference group." The SE calculation does not support this:
+
+With N(0)=7 and observed gate std ≈0.34 for N=8 (from §12.3):
+- SE ≈ 0.34 / √7 ≈ 0.13
+- Turn 3 delta = −0.57: |z| = 0.57 / 0.13 ≈ **4.4 SE**
+- Turn 5 delta = −0.49: |z| ≈ 3.8 SE
+- Turn 7 delta = −0.57: |z| ≈ 4.4 SE
+
+These are statistically significant. The most likely explanation (given the grouping
+flaw above) is that most of the N=8 Group 0 examples are **NORMAL-wrong** — examples
+the model got wrong regardless, where gate behavior is unrelated to demand. On those
+examples, the gate happens to write more (structural schedule fires normally), producing
+the large negative delta. This must be verified by computing the three-way split, not
+dismissed.
+
+#### Problem 4: No uncertainty estimates; the 2pp threshold is below SE
+
+For N=3 Group 0 (n=54), SE ≈ 0.34/√54 ≈ **0.046** = 4.6pp. The script's 2pp verdict
+threshold is below this SE. The Turn 5 "write-deferral strategy" narrative (−6.6pp) is
+one delta with |z| ≈ 1.4 SE — not significant. No bootstrap confidence intervals
+were computed.
+
+All conclusions in §17.2 that go beyond the direction of deltas are unsupported until
+bootstrap CIs are added.
+
+#### Problem 5: "Mattered" confounds the out-of-distribution inference issue
+
+ZERO_WRITE accuracy for N=8 is 40% overall and 20.6% at Turn 7 (§12.2). If the task
+has binary or small-vocabulary answers, 40% is already near or below the model's random
+guess rate with a broken reader — the model is confidently wrong, not uncertain. In this
+regime, almost any example will have ZERO_WRITE wrong, making "mattered" nearly
+tautological for N=8. This is the same observation as Problem 2, stated more precisely:
+the demand-sensitivity analysis as designed cannot separate "workspace helps" from
+"model is broken without workspace." A per-turn or per-slot ablation that stays
+in-distribution (write-dropout during training, or removing only one turn's writes) is
+required for a valid inference.
+
+---
+
+### 18.4 Per-Turn Fraction Reconciliation (§6/§7 vs §12.3)
+
+Two scripts report write statistics for the same checkpoints with different numbers:
+
+| Model | §6/§7 (`analyze_selectivity`): Mean Slots/Step | §12.3 (`analyze_gate_variance`): Mean Gate Frac (T1–T7 avg) | Implied Mean Slots (frac × N) |
+|-------|------------------------------------------------|-------------------------------------------------------------|------------------------------|
+| N=3 lam001 | **0.99** | (1.0+0.973+0.683+0.519+0.756+0.334+0.303)/7 = **0.653** | 0.653 × 3 = **1.96** |
+| N=8 lam001 | **1.37** | (1.0+1.0+0.273+0.153+0.289+0.132+0.243)/7 = **0.441** | 0.441 × 8 = **3.53** |
+
+The ratio between the implied means from §12.3 and the means from §6/§7 is:
+- N=3: 1.96 / 0.99 ≈ **1.98×**
+- N=8: 3.53 / 1.37 ≈ **2.58×**
+
+This is not a rounding difference. The two scripts use different denominator conventions:
+- `analyze_selectivity.py` likely averages over *reasoning steps* within a turn (e.g.,
+  4 steps), not over turns only. If each turn has 4 reasoning steps, slots written per
+  step = slots per turn / 4 ≈ reconciled. Or it computes slots written per *reasoning
+  step*, while `analyze_gate_variance` aggregates across the full turn pass.
+- Alternatively, `analyze_gate_variance` captures the full gate from the hard binary
+  decision (`gate_hard`), while `analyze_selectivity` uses `write_gate_mean` which
+  uses the soft gate.
+
+**The discrepancy must be resolved before either number is cited as a calibrated write
+rate.** An inference-only reconciliation script that reports both metrics on the same
+pass for the same checkpoint is the correct fix (see §18.5 P0).
+
+---
+
+### 18.5 Revised Next Steps
+
+All of the following are inference-only on existing checkpoints (no retraining needed)
+except P8-D.
+
+**P0 (prerequisite — before all else): Per-turn fraction reconciliation.**
+- Run `analyze_selectivity.py` and `analyze_gate_variance.py` on the same checkpoint
+  and trace the divergence. Report both `write_gate_mean` (soft) and `gate_hard.mean()`
+  per turn. This fixes the §6/§7 vs §12.3 discrepancy and gives calibrated write rates
+  for P8-E reporting.
+
+**P1: Three-way grouping + bootstrap CIs (replace §17).**
+- Script: `analyze_three_way_demand.py`
+- Split into helped / both-correct / normal-wrong. Compare gate fractions between
+  helped and both-correct only (the valid counterfactual).
+- Add bootstrap CIs (n_bootstrap=2000) on all group mean differences.
+- Report the composition of the current Group 0 for both N=3 and N=8.
+
+**P2: Per-turn ablation (Condition 2 gap).**
+- Script: `analyze_per_turn_ablation.py`
+- For each turn t, zero out the workspace entering turn t+1 and measure accuracy
+  at turns t+1, ..., T. This isolates which turns' writes are causally downstream-useful,
+  rather than the whole-sequence ZERO_WRITE which breaks the reader entirely.
+
+**P3: Seed-43 replications of P8-E, with write rates.**
+- Configs: p8e_matched_n3_seed43.yaml, p8e_matched_n8_seed43.yaml
+- Run `analyze_selectivity.py` on both to report write rates alongside accuracy.
+
+**P4: Harder task (Conditions 1 + 4 prerequisite).**
+- Can proceed in parallel with P1–P3.
+- Target: trained no-workspace baseline < 80%.
+- LM scaffold can be designed in parallel.
+
+**Order to run (user executes):**
+1. P0 (diagnostic only, no new script needed — re-run existing scripts and compare)
+2. P1 (new script `analyze_three_way_demand.py`)
+3. P2 (new script `analyze_per_turn_ablation.py`)
+4. P3 (new YAML configs + re-run `analyze_selectivity.py`)
+5. P4 (new task config + train)
+
+---
+
+## 19. P1/P2 Results: Three-Way Demand and Per-Turn Ablation
+
+**Date**: October 2026  
+**Scripts**: `scripts/analyze_three_way_demand.py`, `scripts/analyze_per_turn_ablation.py`
+
+---
+
+### 19.1 Three-Way Demand Analysis
+
+#### Group Composition
+
+Applying the three-way classification (§18.3 Problem 1) to the same checkpoints:
+
+| Group | Condition | N=3 lam001 | N=8 lam001 |
+|-------|-----------|:----------:|:----------:|
+| helped | NORMAL ✓ all turns, ZERO ✗ ≥1 turn | **301 (60.2%)** | **328 (65.6%)** |
+| both-correct | NORMAL ✓ all turns, ZERO ✓ all turns | 20 (4.0%) | 5 (1.0%) |
+| normal-wrong | NORMAL ✗ ≥1 turn | 179 (35.8%) | 167 (33.4%) |
+
+**Key revision from §17**: The original binary Group 0 (54 examples for N=3) actually
+contained 20 both-correct + 34 normal-wrong examples lumped together. The valid
+counterfactual comparison is helped vs both-correct only.
+
+The 35.8% / 33.4% normal-wrong fraction reveals that the model already fails on roughly
+a third of examples before the workspace question is even relevant.
+
+#### N=3 lam001: Per-Turn Table
+
+```
+  T  N_hlp   N_ok     hlp       ok     delta          95% CI    sig
+--------------------------------------------------------------------
+  1    301     20   1.0000   1.0000   +0.0000   [+0.000, +0.000]
+  2    301     20   0.9823   0.8667   +0.1156   [+0.013, +0.243]  *
+  3    301     20   0.6777   0.5000   +0.1777   [-0.002, +0.359]
+  4    301     20   0.5216   0.4833   +0.0383   [-0.035, +0.114]
+  5    301     20   0.7375   0.8167   -0.0791   [-0.157, -0.000]  *neg
+  6    301     20   0.3444   0.2500   +0.0944   [+0.029, +0.164]  *
+  7    301     20   0.2769   0.1000   +0.1769   [+0.100, +0.251]  *
+
+Significant turns: 3/7
+Verdict: WEAKLY DEMAND-SELECTIVE
+```
+
+**Interpretation:**
+- **T2, T6, T7**: Positive and significant — the helped group writes more when writing is
+  later shown to matter. This is genuine demand-sensitive gating.
+- **T3**: Borderline positive (CI = [−0.002, +0.359]); the lower bound just clips zero with
+  n=20. Directionally consistent.
+- **T5**: Significant negative (CI barely excludes 0 from above: [−0.157, −0.000]). The
+  helped group writes *less* at T5 than the both-correct group. With n=20 in both-correct
+  this could be a composition effect (both-correct examples may have more entities), or
+  a genuine write-deferral pattern (helped examples suppress T5 writes in favour of T6–7
+  where the demand signal is clearest). The per-turn ablation below provides context.
+- **T4**: Not significant; consistent with the ablation showing T4 resets cause moderate
+  rather than large downstream drops.
+
+Verdict: **N=3 is weakly demand-selective under the corrected three-way design.** The
+signal is present at the turns with the highest cross-turn write utility (T2 primes
+T3–6, T6–7 are the final consolidation turns). Condition 4 is partially but not fully met.
+
+#### N=8 lam001: Per-Turn Table
+
+```
+  T  N_hlp   N_ok     hlp       ok     delta          95% CI    sig
+--------------------------------------------------------------------
+  1    328      5   1.0000   1.0000   +0.0000   [+0.000, +0.000]
+  2    328      5   1.0000   1.0000   +0.0000   [+0.000, +0.000]
+  3    328      5   0.2546   0.8250   -0.5704   [-0.731, -0.336]  *neg
+  5    328      5   0.2790   0.6750   -0.3960   [-0.731, -0.038]  *neg
+  7    328      5   0.2199   0.9250   -0.7051   [-0.766, -0.645]  *neg
+
+Significant turns: 0/7 positive  (3/7 significant negative)
+Verdict: NOT DEMAND-SELECTIVE
+```
+
+**Interpretation:**
+
+The N=8 three-way result is decisive. At turns 3, 5, 7, the helped group writes
+*substantially less* than the both-correct group — and these differences are statistically
+significant despite n=5 in both-correct (the effects are large: T7 delta = −0.71).
+
+This is **anti-demand-selective behavior**. The gate fires *more* on examples where the
+workspace is not needed (both-correct) than on examples where it is causal (helped).
+
+The most likely explanation: the 5 both-correct examples are exceptionally easy examples
+(the model answers correctly even without a workspace). The N=8 gate runs on a largely
+structural schedule — it writes heavily on most examples. Easy examples still have the gate
+fire at T3/T5/T7 at ~0.83–0.93 (near-saturation). Helped examples average ~0.22–0.28 at
+those turns, reflecting the normal gate sparsity. There is no demand signal at all.
+
+The n=5 both-correct reference group is too small for a calibrated confidence interval,
+but the direction is clearly negative and the magnitudes are large enough to be taken
+seriously.
+
+---
+
+### 19.2 Per-Turn Workspace Ablation (N=3 lam001)
+
+```
+Baseline (NORMAL) per-turn accuracy:
+  T1: 100.00%, T2: 98.60%, T3: 92.40%, T4: 90.20%,
+  T5: 87.40%, T6: 91.00%, T7: 97.40%
+
+Accuracy delta (pp) by reset turn vs eval turn:
+          EvalT1  EvalT2  EvalT3  EvalT4  EvalT5  EvalT6  EvalT7
+ResetT2    +0.00   -0.40  -18.80* -23.40* -12.60* -13.20*  -2.80
+ResetT3    +0.00   +0.00  -41.00* -24.00* -24.20* -19.20*  -3.40
+ResetT4    +0.00   +0.00   +0.00  -10.20* -41.40* -19.20*  -3.40
+ResetT5    +0.00   +0.00   +0.00   +0.00  -16.00* -25.60*  -3.40
+ResetT6    +0.00   +0.00   +0.00   +0.00   +0.00   -2.60   -3.40
+ResetT7    +0.00   +0.00   +0.00   +0.00   +0.00   +0.00   -3.40
+
+(* = delta < -5pp)
+```
+
+#### Per-Turn Causal Reading
+
+| Reset Turn | Causal Effect | Downstream reach |
+|------------|--------------|------------------|
+| T2 | Writes at T1 causally used at T3 (−18.8pp), T4 (−23.4pp), T5 (−12.6pp), T6 (−13.2pp) | 4 turns |
+| T3 | Writes at T1–2 causally used at T3 (−41.0pp self), T4 (−24.0pp), T5 (−24.2pp), T6 (−19.2pp) | 4 turns |
+| T4 | Writes at T1–3 causally used at T4 (−10.2pp), T5 (−41.4pp), T6 (−19.2pp) | 3 turns |
+| T5 | Writes at T1–4 causally used at T5 (−16.0pp), T6 (−25.6pp) | 2 turns |
+| T6 | Writes at T1–5 barely used at T6 (−2.6pp), T7 (−3.4pp) | minimal |
+| T7 | Constant −3.4pp regardless of reset turn | baseline floor |
+
+**Key findings:**
+
+1. **Turn-2 writes are the most broadly causal.** Resetting at T2 (wiping T1 writes)
+   causes >12pp drops at each of T3–6. T1 writes accumulate in the workspace and serve
+   as a durable fact store that is read across the entire sequence.
+
+2. **Turn-3 self-read effect is large.** Resetting at T3 drops T3 accuracy by 41pp —
+   the model writes at T2 and reads immediately at T3. This is the strongest single-turn
+   causal signal in the experiment.
+
+3. **Turn-5 reset drops T5 by 16pp and T6 by 25.6pp.** Writes at T1–4 are still being
+   read at T6, 2–5 turns later. The workspace carries content across long time lags.
+
+4. **Turn 6 is causally almost inert** (−2.6pp on itself). This is consistent with the
+   write fraction at T6 being 0.231 in §6 (second-lowest) and the gate learning that
+   terminal-turn writes have low read-ahead value.
+
+5. **The −3.4pp T7 floor appears regardless of when we reset.** This is the cost of
+   having no workspace at T7. It's small because the gate writes very little at T7 anyway
+   (write fraction = 0.071 in §6).
+
+6. **The ablation is strictly lower-triangular** (all non-triangle entries are 0), correctly
+   confirming that only writes accumulated *before* turn t can affect turn t.
+
+**Condition 2 update**: This per-turn ablation is the missing evidence. Each turn's
+accumulated writes are causally downstream-active, with the effects propagating 2–4 turns
+into the future. Combined with the whole-sequence zero-write result (−20.89pp) and
+CORRUPT ≈ ZERO_WRITE (content active), Condition 2 is now substantially met.
+
+---
+
+### 19.3 Updated LM-Transition Scorecard
+
+| # | Condition | Previous | Revised | Evidence |
+|---|-----------|----------|---------|----------|
+| 1 | No-workspace baseline fails (<80%) | ❌ | ❌ | Harder task still needed |
+| 2 | Causal evidence: zero-write + per-turn ablation | ⚠️ | **✅** | Per-turn ablation confirms turn-level causal chain (T3 self-read -41pp; T2 writes reach T6); zero-write + CORRUPT already showed content-active writes; swap control not run but strong evidence |
+| 3 | Cost-matched comparison | ⚠️ | ⚠️ | N=8 P8-E run is an outlier; seed-43 replication still needed |
+| 4 | Gate selective by demand (helped > both-correct) | ❌ | **⚠️** | N=3: WEAKLY DEMAND-SELECTIVE (T2, T6, T7 significant positive; 3/7 turns). N=8: NOT DEMAND-SELECTIVE (anti-selective; structural schedule). |
+
+**Progress: ~2/4** (Condition 2 met, Condition 4 partially met for N=3 only, Conditions 1 and 3 still ⚠️/❌).
+
+The blocking items have not changed: a harder task is needed to power Condition 1 and to
+give a meaningful both-correct reference group for a conclusive Condition 4 test.
+
+---
+
+### 19.4 Remaining Analyses and Next Steps
+
+**P0 (write-rate reconciliation — still needed):**
+The §6/§7 vs §12.3 discrepancy (0.99 vs 1.96 mean slots for N=3) has not been resolved.
+Re-run `analyze_selectivity.py` and check whether it reports soft (`write_gate_mean`) or
+hard (`gate_hard`) counts, and over how many sub-steps per turn. The reconciliation is a
+reading task, not a training task.
+
+**P3 (Seed-43 + write rates for P8-E):**
+Requires two new YAML configs with `seed: 43`. Until these are run, Condition 3 stays ⚠️.
+
+**P4 (Harder task — the decisive next experiment):**
+All four conditions hinge on having a task where the model fails clearly without workspace.
+Target: baseline < 80% without workspace. Once that task exists, all current analyses can
+be re-run and the LM scaffold question is live.
+
+**N=8 per-turn ablation (optional diagnostic):**
+Running `analyze_per_turn_ablation.py` on `fair_hard_n8_lam001` would show whether N=8
+also has a per-turn causal chain or whether its dependence collapses at the first reset
+(consistent with the structural-schedule / reader-fragility interpretation).

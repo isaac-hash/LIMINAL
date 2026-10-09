@@ -1,0 +1,107 @@
+{
+  "n_examples": 500,
+  "group_counts": {
+    "helped": 301,
+    "both-correct": 20,
+    "normal-wrong": 179
+  },
+  "turn_stats": {
+    "1": {
+      "turn": 1,
+      "n_helped": 301,
+      "n_both_correct": 20,
+      "n_normal_wrong": 179,
+      "mean_helped": 1.0,
+      "mean_both_correct": 1.0,
+      "mean_normal_wrong": 1.0,
+      "delta_helped_minus_both_correct": 0.0,
+      "ci95_lo": 0.0,
+      "ci95_hi": 0.0,
+      "significant_positive": false
+    },
+    "2": {
+      "turn": 2,
+      "n_helped": 301,
+      "n_both_correct": 20,
+      "n_normal_wrong": 179,
+      "mean_helped": 0.9823,
+      "mean_both_correct": 0.8667,
+      "mean_normal_wrong": 0.9683,
+      "delta_helped_minus_both_correct": 0.1156,
+      "ci95_lo": 0.0134,
+      "ci95_hi": 0.2434,
+      "significant_positive": true
+    },
+    "3": {
+      "turn": 3,
+      "n_helped": 301,
+      "n_both_correct": 20,
+      "n_normal_wrong": 179,
+      "mean_helped": 0.6777,
+      "mean_both_correct": 0.5,
+      "mean_normal_wrong": 0.7114,
+      "delta_helped_minus_both_correct": 0.1777,
+      "ci95_lo": -0.0024,
+      "ci95_hi": 0.3589,
+      "significant_positive": false
+    },
+    "4": {
+      "turn": 4,
+      "n_helped": 301,
+      "n_both_correct": 20,
+      "n_normal_wrong": 179,
+      "mean_helped": 0.5216,
+      "mean_both_correct": 0.4833,
+      "mean_normal_wrong": 0.5177,
+      "delta_helped_minus_both_correct": 0.0383,
+      "ci95_lo": -0.035,
+      "ci95_hi": 0.1138,
+      "significant_positive": false
+    },
+    "5": {
+      "turn": 5,
+      "n_helped": 301,
+      "n_both_correct": 20,
+      "n_normal_wrong": 179,
+      "mean_helped": 0.7375,
+      "mean_both_correct": 0.8167,
+      "mean_normal_wrong": 0.7803,
+      "delta_helped_minus_both_correct": -0.0791,
+      "ci95_lo": -0.1569,
+      "ci95_hi": -0.0003,
+      "significant_positive": false
+    },
+    "6": {
+      "turn": 6,
+      "n_helped": 301,
+      "n_both_correct": 20,
+      "n_normal_wrong": 179,
+      "mean_helped": 0.3444,
+      "mean_both_correct": 0.25,
+      "mean_normal_wrong": 0.3259,
+      "delta_helped_minus_both_correct": 0.0944,
+      "ci95_lo": 0.0288,
+      "ci95_hi": 0.1644,
+      "significant_positive": true
+    },
+    "7": {
+      "turn": 7,
+      "n_helped": 301,
+      "n_both_correct": 20,
+      "n_normal_wrong": 179,
+      "mean_helped": 0.2769,
+      "mean_both_correct": 0.1,
+      "mean_normal_wrong": 0.3706,
+      "delta_helped_minus_both_correct": 0.1769,
+      "ci95_lo": 0.1003,
+      "ci95_hi": 0.2512,
+      "significant_positive": true
+    }
+  },
+  "n_sig_turns": 3,
+  "n_total_turns": 7,
+  "verdict": "WEAKLY DEMAND-SELECTIVE: significant positive lift at 3/7 turns only.",
+  "config": "configs/experiments/fair_hard_n3_lam001.yaml",
+  "checkpoint": "results/fair_hard_n3_lam001/best.pt",
+  "n_bootstrap": 2000
+}

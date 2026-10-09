@@ -1,0 +1,107 @@
+{
+  "n_examples": 500,
+  "group_counts": {
+    "helped": 328,
+    "both-correct": 5,
+    "normal-wrong": 167
+  },
+  "turn_stats": {
+    "1": {
+      "turn": 1,
+      "n_helped": 328,
+      "n_both_correct": 5,
+      "n_normal_wrong": 167,
+      "mean_helped": 1.0,
+      "mean_both_correct": 1.0,
+      "mean_normal_wrong": 1.0,
+      "delta_helped_minus_both_correct": 0.0,
+      "ci95_lo": 0.0,
+      "ci95_hi": 0.0,
+      "significant_positive": false
+    },
+    "2": {
+      "turn": 2,
+      "n_helped": 328,
+      "n_both_correct": 5,
+      "n_normal_wrong": 167,
+      "mean_helped": 1.0,
+      "mean_both_correct": 1.0,
+      "mean_normal_wrong": 1.0,
+      "delta_helped_minus_both_correct": 0.0,
+      "ci95_lo": 0.0,
+      "ci95_hi": 0.0,
+      "significant_positive": false
+    },
+    "3": {
+      "turn": 3,
+      "n_helped": 328,
+      "n_both_correct": 5,
+      "n_normal_wrong": 167,
+      "mean_helped": 0.2546,
+      "mean_both_correct": 0.825,
+      "mean_normal_wrong": 0.2927,
+      "delta_helped_minus_both_correct": -0.5704,
+      "ci95_lo": -0.7311,
+      "ci95_hi": -0.3364,
+      "significant_positive": false
+    },
+    "4": {
+      "turn": 4,
+      "n_helped": 328,
+      "n_both_correct": 5,
+      "n_normal_wrong": 167,
+      "mean_helped": 0.1494,
+      "mean_both_correct": 0.2,
+      "mean_normal_wrong": 0.1587,
+      "delta_helped_minus_both_correct": -0.0506,
+      "ci95_lo": -0.1025,
+      "ci95_hi": 0.0032,
+      "significant_positive": false
+    },
+    "5": {
+      "turn": 5,
+      "n_helped": 328,
+      "n_both_correct": 5,
+      "n_normal_wrong": 167,
+      "mean_helped": 0.279,
+      "mean_both_correct": 0.675,
+      "mean_normal_wrong": 0.2979,
+      "delta_helped_minus_both_correct": -0.396,
+      "ci95_lo": -0.7313,
+      "ci95_hi": -0.038,
+      "significant_positive": false
+    },
+    "6": {
+      "turn": 6,
+      "n_helped": 328,
+      "n_both_correct": 5,
+      "n_normal_wrong": 167,
+      "mean_helped": 0.133,
+      "mean_both_correct": 0.125,
+      "mean_normal_wrong": 0.1302,
+      "delta_helped_minus_both_correct": 0.008,
+      "ci95_lo": -0.0015,
+      "ci95_hi": 0.0198,
+      "significant_positive": false
+    },
+    "7": {
+      "turn": 7,
+      "n_helped": 328,
+      "n_both_correct": 5,
+      "n_normal_wrong": 167,
+      "mean_helped": 0.2199,
+      "mean_both_correct": 0.925,
+      "mean_normal_wrong": 0.268,
+      "delta_helped_minus_both_correct": -0.7051,
+      "ci95_lo": -0.7658,
+      "ci95_hi": -0.6447,
+      "significant_positive": false
+    }
+  },
+  "n_sig_turns": 0,
+  "n_total_turns": 7,
+  "verdict": "NOT DEMAND-SELECTIVE: no turn shows a significant positive lift in gate_frac for helped vs both-correct. Gate may be positional.",
+  "config": "configs/experiments/fair_hard_n8_lam001.yaml",
+  "checkpoint": "results/fair_hard_n8_lam001/best.pt",
+  "n_bootstrap": 2000
+}
