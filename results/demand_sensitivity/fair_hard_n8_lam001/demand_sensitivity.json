@@ -1,0 +1,69 @@
+{
+  "n_examples": 500,
+  "n_mattered": 493,
+  "n_not_mattered": 7,
+  "pct_mattered": 98.6,
+  "turn_stats": {
+    "1": {
+      "turn": 1,
+      "n_not_mattered": 7,
+      "n_mattered": 493,
+      "mean_gate_frac_not_mattered": 1.0,
+      "mean_gate_frac_mattered": 1.0,
+      "delta_mattered_minus_not": 0.0
+    },
+    "2": {
+      "turn": 2,
+      "n_not_mattered": 7,
+      "n_mattered": 493,
+      "mean_gate_frac_not_mattered": 1.0,
+      "mean_gate_frac_mattered": 1.0,
+      "delta_mattered_minus_not": 0.0
+    },
+    "3": {
+      "turn": 3,
+      "n_not_mattered": 7,
+      "n_mattered": 493,
+      "mean_gate_frac_not_mattered": 0.8393,
+      "mean_gate_frac_mattered": 0.265,
+      "delta_mattered_minus_not": -0.5743
+    },
+    "4": {
+      "turn": 4,
+      "n_not_mattered": 7,
+      "n_mattered": 493,
+      "mean_gate_frac_not_mattered": 0.2143,
+      "mean_gate_frac_mattered": 0.1521,
+      "delta_mattered_minus_not": -0.0622
+    },
+    "5": {
+      "turn": 5,
+      "n_not_mattered": 7,
+      "n_mattered": 493,
+      "mean_gate_frac_not_mattered": 0.7679,
+      "mean_gate_frac_mattered": 0.2825,
+      "delta_mattered_minus_not": -0.4854
+    },
+    "6": {
+      "turn": 6,
+      "n_not_mattered": 7,
+      "n_mattered": 493,
+      "mean_gate_frac_not_mattered": 0.2321,
+      "mean_gate_frac_mattered": 0.1306,
+      "delta_mattered_minus_not": -0.1016
+    },
+    "7": {
+      "turn": 7,
+      "n_not_mattered": 7,
+      "n_mattered": 493,
+      "mean_gate_frac_not_mattered": 0.8036,
+      "mean_gate_frac_mattered": 0.235,
+      "delta_mattered_minus_not": -0.5685
+    }
+  },
+  "n_positive_turns": 0,
+  "n_total_turns": 7,
+  "verdict": "NOT DEMAND-SELECTIVE: gate shows no consistent lift on write_mattered examples. Gate schedule may be positional or structural.",
+  "config": "configs/experiments/fair_hard_n8_lam001.yaml",
+  "checkpoint": "results/fair_hard_n8_lam001/best.pt"
+}
