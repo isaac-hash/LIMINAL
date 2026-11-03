@@ -1,0 +1,14 @@
+elastic weight consolidation - still usefule for memory tests
+evaluate the external workspace alone
+setup the external ws as a decision tree [could perform worse] - you can extract the rules of a dt
+add a threshold on the rules, if it passess the threshold, it should be encoded with the ;latent space
+
+ry secod order derivative to determine task complexity
+
+fisher information matrix [states, parametrs, could serve as input]
+
+have a graph- speed vs performance
+
+add a conflict resolution module
+
+diffusion models
